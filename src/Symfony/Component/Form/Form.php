@@ -172,10 +172,15 @@ class Form extends FieldGroup
      *
      * @param  string $secret The secret string to use
      *
-     * @return string A token string
+     * @return string|false A token string or false if there is no need to have a CSRF token for this form
      */
     protected function generateCsrfToken($secret)
     {
+        if (!session_id()) {
+            // there is no session, let's disable the CSRF for this form
+            return false;
+        }
+
         return md5($secret.session_id().get_class($this));
     }
 
@@ -192,7 +197,8 @@ class Form extends FieldGroup
      */
     public function enableCsrfProtection($csrfFieldName = null, $csrfSecret = null)
     {
-        if (!$this->isCsrfProtected()) {
+        $token = $this->generateCsrfToken($csrfSecret);
+        if (!$this->isCsrfProtected() && false !== $token) {
             if ($csrfFieldName === null) {
                 $csrfFieldName = self::$defaultCsrfFieldName;
             }
@@ -208,7 +214,7 @@ class Form extends FieldGroup
             $field = new HiddenField($csrfFieldName, array(
                 'property_path' => null,
             ));
-            $field->setData($this->generateCsrfToken($csrfSecret));
+            $field->setData($token);
             $this->add($field);
 
             $this->csrfFieldName = $csrfFieldName;
