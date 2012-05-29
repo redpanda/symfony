@@ -1,56 +1,106 @@
 <?php
 
-namespace Symfony\Component\EventDispatcher;
-
 /*
  * This file is part of the Symfony package.
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\EventDispatcher;
+
 /**
- * Event.
+ * Event is the base class for classes containing event data.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * This class contains no event data. It is used by events that do not pass
+ * state information to an event handler when an event is raised.
+ *
+ * You can call the method stopPropagation() to abort the execution of
+ * further listeners in your event listener.
+ *
+ * @author  Guilherme Blanco <guilhermeblanco@hotmail.com>
+ * @author  Jonathan Wage <jonwage@gmail.com>
+ * @author  Roman Borschel <roman@code-factory.org>
+ * @author  Bernhard Schussek <bschussek@gmail.com>
+ *
+ * @api
  */
 class Event
 {
-    protected $value = null;
-    protected $processed = false;
-    protected $subject;
-    protected $name;
-    protected $parameters;
+    /**
+     * @var Boolean Whether no further event listeners should be triggered
+     */
+    private $propagationStopped = false;
 
     /**
-     * Constructs a new Event.
-     *
-     * @param mixed   $subject      The subject
-     * @param string  $name         The event name
-     * @param array   $parameters   An array of parameters
+     * @var EventDispatcher Dispatcher that dispatched this event
      */
-    public function __construct($subject, $name, $parameters = array())
+    private $dispatcher;
+
+    /**
+     * @var string This event's name
+     */
+    private $name;
+
+    /**
+     * Returns whether further event listeners should be triggered.
+     *
+     * @see Event::stopPropagation
+     * @return Boolean Whether propagation was already stopped for this event.
+     *
+     * @api
+     */
+    public function isPropagationStopped()
     {
-        $this->subject = $subject;
-        $this->name = $name;
-        $this->parameters = $parameters;
+        return $this->propagationStopped;
     }
 
     /**
-     * Returns the subject.
+     * Stops the propagation of the event to further event listeners.
      *
-     * @return mixed The subject
+     * If multiple event listeners are connected to the same event, no
+     * further event listener will be triggered once any trigger calls
+     * stopPropagation().
+     *
+     * @api
      */
-    public function getSubject()
+    public function stopPropagation()
     {
-        return $this->subject;
+        $this->propagationStopped = true;
     }
 
     /**
-     * Returns the event name.
+     * Stores the EventDispatcher that dispatches this Event
      *
-     * @return string The event name
+     * @param EventDispatcher $dispatcher
+     *
+     * @api
+     */
+    public function setDispatcher(EventDispatcher $dispatcher)
+    {
+        $this->dispatcher = $dispatcher;
+    }
+
+    /**
+     * Returns the EventDispatcher that dispatches this Event
+     *
+     * @return EventDispatcher
+     *
+     * @api
+     */
+    public function getDispatcher()
+    {
+        return $this->dispatcher;
+    }
+
+    /**
+     * Gets the event's name.
+     *
+     * @return string
+     *
+     * @api
      */
     public function getName()
     {
@@ -58,93 +108,14 @@ class Event
     }
 
     /**
-     * Sets the return value for this event.
+     * Sets the event's name property.
      *
-     * @param mixed $value The return value
+     * @param string $name The event name.
+     *
+     * @api
      */
-    public function setReturnValue($value)
+    public function setName($name)
     {
-        $this->value = $value;
-    }
-
-    /**
-     * Returns the return value.
-     *
-     * @return mixed The return value
-     */
-    public function getReturnValue()
-    {
-        return $this->value;
-    }
-
-    /**
-     * Sets the processed flag.
-     *
-     * @param Boolean $processed The processed flag value
-     */
-    public function setProcessed($processed)
-    {
-        $this->processed = (boolean) $processed;
-    }
-
-    /**
-     * Returns whether the event has been processed by a listener or not.
-     *
-     * @return Boolean true if the event has been processed, false otherwise
-     */
-    public function isProcessed()
-    {
-        return $this->processed;
-    }
-
-    /**
-     * Returns the event parameters.
-     *
-     * @return array The event parameters
-     */
-    public function all()
-    {
-        return $this->parameters;
-    }
-
-    /**
-     * Returns true if the parameter exists.
-     *
-     * @param  string  $name  The parameter name
-     *
-     * @return Boolean true if the parameter exists, false otherwise
-     */
-    public function has($name)
-    {
-        return array_key_exists($name, $this->parameters);
-    }
-
-    /**
-     * Returns a parameter value.
-     *
-     * @param  string  $name  The parameter name
-     *
-     * @return mixed  The parameter value
-     *
-     * @throws \InvalidArgumentException When parameter doesn't exists for this event
-     */
-    public function get($name)
-    {
-        if (!array_key_exists($name, $this->parameters)) {
-            throw new \InvalidArgumentException(sprintf('The event "%s" has no "%s" parameter.', $this->name, $name));
-        }
-
-        return $this->parameters[$name];
-    }
-
-    /**
-     * Sets a parameter.
-     *
-     * @param string  $name   The parameter name
-     * @param mixed   $value  The parameter value
-     */
-    public function set($name, $value)
-    {
-        $this->parameters[$name] = $value;
+        $this->name = $name;
     }
 }

@@ -1,23 +1,53 @@
 <?php
 
-namespace Symfony\Component\Translation;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Translation;
 
 /**
  * MessageSelector.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class MessageSelector
 {
+    /**
+     * Given a message with different plural translations separated by a
+     * pipe (|), this method returns the correct portion of the message based
+     * on the given number, locale and the pluralization rules in the message
+     * itself.
+     *
+     * The message supports two different types of pluralization rules:
+     *
+     * interval: {0} There are no apples|{1} There is one apple|]1,Inf] There are %count% apples
+     * indexed:  There is one apple|There is %count% apples
+     *
+     * The indexed solution can also contain labels (e.g. one: There is one apple).
+     * This is purely for making the translations more clear - it does not
+     * affect the functionality.
+     *
+     * The two methods can also be mixed:
+     *     {0} There are no apples|one: There is one apple|more: There are %count% apples
+     *
+     * @param string  $message The message being translated
+     * @param integer $number  The number of items represented for the message
+     * @param string  $locale  The locale to use for choosing
+     *
+     * @return string
+     *
+     * @throws InvalidArgumentException
+     *
+     * @api
+     */
     public function choose($message, $number, $locale)
     {
         $parts = explode('|', $message);
@@ -26,9 +56,9 @@ class MessageSelector
         foreach ($parts as $part) {
             $part = trim($part);
 
-            if (preg_match('/^(?<interval>'.Interval::getIntervalRegexp().')\s+(?<message>.+?)$/x', $part, $matches)) {
+            if (preg_match('/^(?P<interval>'.Interval::getIntervalRegexp().')\s*(?P<message>.*?)$/x', $part, $matches)) {
                 $explicitRules[$matches['interval']] = $matches['message'];
-            } elseif (preg_match('/^\w+\: +(.+)$/', $part, $matches)) {
+            } elseif (preg_match('/^\w+\:\s*(.*?)$/', $part, $matches)) {
                 $standardRules[] = $matches[1];
             } else {
                 $standardRules[] = $part;
@@ -44,7 +74,7 @@ class MessageSelector
 
         $position = PluralizationRules::get($number, $locale);
         if (!isset($standardRules[$position])) {
-            throw new \InvalidArgumentException('Unable to choose a translation.');
+            throw new \InvalidArgumentException(sprintf('Unable to choose a translation for "%s" with locale "%s".', $message, $locale));
         }
 
         return $standardRules[$position];

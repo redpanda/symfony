@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Finder\Iterator;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Finder\Iterator;
 
 /**
  * CustomFilterIterator filters files by applying anonymous functions.
@@ -17,20 +17,25 @@ namespace Symfony\Component\Finder\Iterator;
  * The anonymous function receives a \SplFileInfo and must return false
  * to remove files.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class CustomFilterIterator extends \FilterIterator
 {
-    protected $filters = array();
+    private $filters = array();
 
     /**
      * Constructor.
      *
      * @param \Iterator $iterator The Iterator to filter
-     * @param array     $filters  An array of \Closure
+     * @param array     $filters  An array of PHP callbacks
      */
     public function __construct(\Iterator $iterator, array $filters)
     {
+        foreach ($filters as $filter) {
+            if (!is_callable($filter)) {
+                throw new \InvalidArgumentException('Invalid PHP callback.');
+            }
+        }
         $this->filters = $filters;
 
         parent::__construct($iterator);
@@ -43,10 +48,10 @@ class CustomFilterIterator extends \FilterIterator
      */
     public function accept()
     {
-        $fileinfo = $this->getInnerIterator()->current();
+        $fileinfo = $this->current();
 
         foreach ($this->filters as $filter) {
-            if (false === $filter($fileinfo)) {
+            if (false === call_user_func($filter, $fileinfo)) {
                 return false;
             }
         }

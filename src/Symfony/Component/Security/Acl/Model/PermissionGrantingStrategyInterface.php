@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Security\Acl\Model;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Security\Acl\Model;
 
 /**
  * Interface used by permission granting implementations.
@@ -22,9 +22,9 @@ interface PermissionGrantingStrategyInterface
      * Determines whether access to a domain object is to be granted
      *
      * @param AclInterface $acl
-     * @param array $masks
-     * @param array $sids
-     * @param Boolean $administrativeMode
+     * @param array        $masks
+     * @param array        $sids
+     * @param Boolean      $administrativeMode
      * @return Boolean
      */
     function isGranted(AclInterface $acl, array $masks, array $sids, $administrativeMode = false);
@@ -33,11 +33,12 @@ interface PermissionGrantingStrategyInterface
      * Determines whether access to a domain object's field is to be granted
      *
      * @param AclInterface $acl
-     * @param string $field
-     * @param array $masks
-     * @param array $sids
-     * @param Boolean $adminstrativeMode
+     * @param string       $field
+     * @param array        $masks
+     * @param array        $sids
+     * @param Boolean      $administrativeMode
+     *
      * @return Boolean
      */
-    function isFieldGranted(AclInterface $acl, $field, array $masks, array $sids, $adminstrativeMode = false);
+    function isFieldGranted(AclInterface $acl, $field, array $masks, array $sids, $administrativeMode = false);
 }

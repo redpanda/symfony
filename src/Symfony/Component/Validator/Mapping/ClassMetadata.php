@@ -1,21 +1,26 @@
 <?php
 
-namespace Symfony\Component\Validator\Mapping;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\Validator\Mapping;
+
 use Symfony\Component\Validator\Constraint;
-use Symfony\Component\Validator\Constraints\Valid;
 use Symfony\Component\Validator\Exception\ConstraintDefinitionException;
 use Symfony\Component\Validator\Exception\GroupDefinitionException;
 
+/**
+ * Represents all the configured constraints on a given class.
+ *
+ * @author Bernhard Schussek <bschussek@gmail.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ */
 class ClassMetadata extends ElementMetadata
 {
     public $name;
@@ -24,6 +29,7 @@ class ClassMetadata extends ElementMetadata
     public $properties = array();
     public $getters = array();
     public $groupSequence = array();
+    public $groupSequenceProvider = false;
     private $reflClass;
 
     /**
@@ -35,7 +41,11 @@ class ClassMetadata extends ElementMetadata
     {
         $this->name = $class;
         // class name without namespace
-        $this->defaultGroup = substr($class, strrpos($class, '\\') + 1);
+        if (false !== $nsSep = strrpos($class, '\\')) {
+            $this->defaultGroup = substr($class, $nsSep + 1);
+        } else {
+            $this->defaultGroup = $class;
+        }
     }
 
     /**
@@ -48,6 +58,7 @@ class ClassMetadata extends ElementMetadata
         return array_merge(parent::__sleep(), array(
             'getters',
             'groupSequence',
+            'groupSequenceProvider',
             'members',
             'name',
             'properties',
@@ -70,12 +81,12 @@ class ClassMetadata extends ElementMetadata
      *
      * For each class, the group "Default" is an alias for the group
      * "<ClassName>", where <ClassName> is the non-namespaced name of the
-     * class. All constraints implicitely or explicitely assigned to group
+     * class. All constraints implicitly or explicitly assigned to group
      * "Default" belong to both of these groups, unless the class defines
      * a group sequence.
      *
      * If a class defines a group sequence, validating the class in "Default"
-     * will validate the group sequence. The constraints assinged to "Default"
+     * will validate the group sequence. The constraints assigned to "Default"
      * can still be validated by validating the class in "<ClassName>".
      *
      * @return string  The name of the default group
@@ -90,8 +101,11 @@ class ClassMetadata extends ElementMetadata
      */
     public function addConstraint(Constraint $constraint)
     {
-        if ($constraint instanceof Valid) {
-            throw new ConstraintDefinitionException('The constraint Valid can only be put on properties or getters');
+        if (!in_array(Constraint::CLASS_CONSTRAINT, (array) $constraint->getTargets())) {
+            throw new ConstraintDefinitionException(sprintf(
+                'The constraint %s cannot be put on classes',
+                get_class($constraint)
+            ));
         }
 
         $constraint->addImplicitGroupName($this->getDefaultGroup());
@@ -174,7 +188,7 @@ class ClassMetadata extends ElementMetadata
 
                     if ($member instanceof PropertyMetadata && !isset($this->properties[$property])) {
                         $this->properties[$property] = $member;
-                    } else if ($member instanceof GetterMetadata && !isset($this->getters[$property])) {
+                    } elseif ($member instanceof GetterMetadata && !isset($this->getters[$property])) {
                         $this->getters[$property] = $member;
                     }
                 }
@@ -191,17 +205,27 @@ class ClassMetadata extends ElementMetadata
     {
         $property = $metadata->getPropertyName();
 
-        if (!isset($this->members[$property])) {
-            $this->members[$property] = array();
-        }
-
         $this->members[$property][] = $metadata;
+    }
+
+    /**
+     * Returns true if metadatas of members is present for the given property.
+     *
+     * @param string $property The name of the property
+     *
+     * @return Boolean
+     */
+    public function hasMemberMetadatas($property)
+    {
+        return array_key_exists($property, $this->members);
     }
 
     /**
      * Returns all metadatas of members describing the given property
      *
      * @param string $property The name of the property
+     *
+     * @return array An array of MemberMetadata
      */
     public function getMemberMetadatas($property)
     {
@@ -225,6 +249,10 @@ class ClassMetadata extends ElementMetadata
      */
     public function setGroupSequence(array $groups)
     {
+        if ($this->isGroupSequenceProvider()) {
+            throw new GroupDefinitionException('Defining a static group sequence is not allowed with a group sequence provider');
+        }
+
         if (in_array(Constraint::DEFAULT_GROUP, $groups, true)) {
             throw new GroupDefinitionException(sprintf('The group "%s" is not allowed in group sequences', Constraint::DEFAULT_GROUP));
         }
@@ -241,7 +269,7 @@ class ClassMetadata extends ElementMetadata
     /**
      * Returns whether this class has an overridden default group sequence.
      *
-     * @return boolean
+     * @return Boolean
      */
     public function hasGroupSequence()
     {
@@ -270,5 +298,33 @@ class ClassMetadata extends ElementMetadata
         }
 
         return $this->reflClass;
+    }
+
+    /**
+     * Sets whether a group sequence provider should be used
+     *
+     * @param boolean $active
+     */
+    public function setGroupSequenceProvider($active)
+    {
+        if ($this->hasGroupSequence()) {
+            throw new GroupDefinitionException('Defining a group sequence provider is not allowed with a static group sequence');
+        }
+
+        if (!$this->getReflectionClass()->implementsInterface('Symfony\Component\Validator\GroupSequenceProviderInterface')) {
+            throw new GroupDefinitionException(sprintf('Class "%s" must implement GroupSequenceProviderInterface', $this->name));
+        }
+
+        $this->groupSequenceProvider = $active;
+    }
+
+    /**
+     * Returns whether the class is a group sequence provider.
+     *
+     * @return boolean
+     */
+    public function isGroupSequenceProvider()
+    {
+        return $this->groupSequenceProvider;
     }
 }

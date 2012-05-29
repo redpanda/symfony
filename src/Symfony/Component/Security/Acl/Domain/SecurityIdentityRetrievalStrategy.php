@@ -1,21 +1,23 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Security\Acl\Domain;
 
-use Symfony\Component\Security\Authentication\Token\TokenInterface;
-use Symfony\Component\Security\Acl\Model\SecurityIdentityRetrievalStrategyInterface;
-use Symfony\Component\Security\Authentication\AuthenticationTrustResolver;
-use Symfony\Component\Security\Role\RoleHierarchyInterface;
-use Symfony\Component\Security\Authorization\Voter\AuthenticatedVoter;
+use Symfony\Component\Security\Core\Authentication\Token\AnonymousToken;
 
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Acl\Model\SecurityIdentityRetrievalStrategyInterface;
+use Symfony\Component\Security\Core\Authentication\AuthenticationTrustResolver;
+use Symfony\Component\Security\Core\Role\RoleHierarchyInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\AuthenticatedVoter;
 
 /**
  * Strategy for retrieving security identities
@@ -24,15 +26,14 @@ use Symfony\Component\Security\Authorization\Voter\AuthenticatedVoter;
  */
 class SecurityIdentityRetrievalStrategy implements SecurityIdentityRetrievalStrategyInterface
 {
-    protected $roleHierarchy;
-    protected $authenticationTrustResolver;
+    private $roleHierarchy;
+    private $authenticationTrustResolver;
 
     /**
      * Constructor
      *
-     * @param RoleHierarchyInterface $roleHierarchy
+     * @param RoleHierarchyInterface      $roleHierarchy
      * @param AuthenticationTrustResolver $authenticationTrustResolver
-     * @return void
      */
     public function __construct(RoleHierarchyInterface $roleHierarchy, AuthenticationTrustResolver $authenticationTrustResolver)
     {
@@ -46,9 +47,14 @@ class SecurityIdentityRetrievalStrategy implements SecurityIdentityRetrievalStra
     public function getSecurityIdentities(TokenInterface $token)
     {
         $sids = array();
-        
-        if (false === $this->authenticationTrustResolver->isAnonymous($token)) {
-            $sids[] = new UserSecurityIdentity($token);
+
+        // add user security identity
+        if (!$token instanceof AnonymousToken) {
+            try {
+                $sids[] = UserSecurityIdentity::fromToken($token);
+            } catch (\InvalidArgumentException $invalid) {
+                // ignore, user has no user security identity
+            }
         }
 
         // add all reachable roles
@@ -61,10 +67,10 @@ class SecurityIdentityRetrievalStrategy implements SecurityIdentityRetrievalStra
             $sids[] = new RoleSecurityIdentity(AuthenticatedVoter::IS_AUTHENTICATED_FULLY);
             $sids[] = new RoleSecurityIdentity(AuthenticatedVoter::IS_AUTHENTICATED_REMEMBERED);
             $sids[] = new RoleSecurityIdentity(AuthenticatedVoter::IS_AUTHENTICATED_ANONYMOUSLY);
-        } else if ($this->authenticationTrustResolver->isRememberMe($token)) {
+        } elseif ($this->authenticationTrustResolver->isRememberMe($token)) {
             $sids[] = new RoleSecurityIdentity(AuthenticatedVoter::IS_AUTHENTICATED_REMEMBERED);
             $sids[] = new RoleSecurityIdentity(AuthenticatedVoter::IS_AUTHENTICATED_ANONYMOUSLY);
-        } else if ($this->authenticationTrustResolver->isAnonymous($token)) {
+        } elseif ($this->authenticationTrustResolver->isAnonymous($token)) {
             $sids[] = new RoleSecurityIdentity(AuthenticatedVoter::IS_AUTHENTICATED_ANONYMOUSLY);
         }
 

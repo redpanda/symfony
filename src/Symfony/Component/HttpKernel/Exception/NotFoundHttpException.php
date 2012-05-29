@@ -1,25 +1,32 @@
 <?php
 
-namespace Symfony\Component\HttpKernel\Exception;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\HttpKernel\Exception;
+
 /**
  * NotFoundHttpException.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
-class NotFoundHttpException extends \RuntimeException
+class NotFoundHttpException extends HttpException
 {
-    public function __construct($message = 'Not Found', \Exception $previous = null)
+    /**
+     * Constructor.
+     *
+     * @param string    $message  The internal exception message
+     * @param Exception $previous The previous exception
+     * @param integer   $code     The internal exception code
+     */
+    public function __construct($message = null, \Exception $previous = null, $code = 0)
     {
-        parent::__construct($message, 404, $previous);
+        parent::__construct(404, $message, $previous, array(), $code);
     }
 }

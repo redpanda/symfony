@@ -1,24 +1,24 @@
 <?php
 
-namespace Symfony\Component\HttpKernel\Debug;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\HttpKernel\Debug;
 
 /**
  * ErrorHandler.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class ErrorHandler
 {
-    protected $levels = array(
+    private $levels = array(
         E_WARNING           => 'Warning',
         E_NOTICE            => 'Notice',
         E_USER_ERROR        => 'User Error',
@@ -26,23 +26,32 @@ class ErrorHandler
         E_USER_NOTICE       => 'User Notice',
         E_STRICT            => 'Runtime Notice',
         E_RECOVERABLE_ERROR => 'Catchable Fatal Error',
+        E_DEPRECATED        => 'Deprecated',
+        E_USER_DEPRECATED   => 'User Deprecated',
     );
 
-    protected $level;
+    private $level;
 
     /**
-     * Constructor.
+     * Register the error handler.
      *
      * @param integer $level The level at which the conversion to Exception is done (null to use the error_reporting() value and 0 to disable)
+     *
+     * @return The registered error handler
      */
-    public function __construct($level = null)
+    static public function register($level = null)
     {
-        $this->level = null === $level ? error_reporting() : $level;
+        $handler = new static();
+        $handler->setLevel($level);
+
+        set_error_handler(array($handler, 'handle'));
+
+        return $handler;
     }
 
-    public function register()
+    public function setLevel($level)
     {
-        set_error_handler(array($this, 'handle'));
+        $this->level = null === $level ? error_reporting() : $level;
     }
 
     /**

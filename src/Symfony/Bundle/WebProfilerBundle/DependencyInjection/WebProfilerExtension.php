@@ -1,22 +1,21 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Bundle\WebProfilerBundle\DependencyInjection;
 
-use Symfony\Component\DependencyInjection\Extension\Extension;
+use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
-use Symfony\Component\DependencyInjection\Resource\FileResource;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\DependencyInjection\Reference;
-use Symfony\Component\DependencyInjection\Definition;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Config\FileLocator;
+use Symfony\Bundle\WebProfilerBundle\EventListener\WebDebugToolbarListener;
 
 /**
  * WebProfilerExtension.
@@ -28,36 +27,34 @@ use Symfony\Component\DependencyInjection\Definition;
  *        intercept-redirects="true"
  *    />
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class WebProfilerExtension extends Extension
 {
     /**
      * Loads the web profiler configuration.
      *
-     * @param array            $config    An array of configuration settings
+     * @param array            $configs   An array of configuration settings
      * @param ContainerBuilder $container A ContainerBuilder instance
      */
-    public function configLoad($config, ContainerBuilder $container)
+    public function load(array $configs, ContainerBuilder $container)
     {
-        $loader = new XmlFileLoader($container, __DIR__.'/../Resources/config');
+        $configuration = $this->getConfiguration($configs, $container);
+        $config = $this->processConfiguration($configuration, $configs);
 
-        if (isset($config['toolbar'])) {
-            if ($config['toolbar']) {
-                if (!$container->hasDefinition('debug.toolbar')) {
-                    $loader = new XmlFileLoader($container, __DIR__.'/../Resources/config');
-                    $loader->load('toolbar.xml');
-                }
-            } elseif ($container->hasDefinition('debug.toolbar')) {
-                $container->getDefinition('debug.toolbar')->clearTags();
-            }
+        $loader = new XmlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
+        $loader->load('toolbar.xml');
+
+        $container->setParameter('web_profiler.debug_toolbar.intercept_redirects', $config['intercept_redirects']);
+
+        if (!$config['toolbar']) {
+            $mode = WebDebugToolbarListener::DISABLED;
+        } else {
+            $mode = WebDebugToolbarListener::ENABLED;
         }
 
-        foreach (array('intercept-redirects', 'intercept_redirects') as $key) {
-            if (isset($config[$key])) {
-                $container->setParameter('debug.toolbar.intercept_redirects', (Boolean) $config[$key]);
-            }
-        }
+        $container->setParameter('web_profiler.debug_toolbar.mode', $mode);
+        $container->setParameter('web_profiler.debug_toolbar.position', $config['position']);
     }
 
     /**
@@ -72,11 +69,6 @@ class WebProfilerExtension extends Extension
 
     public function getNamespace()
     {
-        return 'http://www.symfony-project.org/schema/dic/webprofiler';
-    }
-
-    public function getAlias()
-    {
-        return 'webprofiler';
+        return 'http://symfony.com/schema/dic/webprofiler';
     }
 }

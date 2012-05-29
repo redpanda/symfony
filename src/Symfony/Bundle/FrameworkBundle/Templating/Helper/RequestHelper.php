@@ -1,23 +1,23 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Bundle\FrameworkBundle\Templating\Helper;
 
 use Symfony\Component\Templating\Helper\Helper;
 use Symfony\Component\HttpFoundation\Request;
 
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
-
 /**
  * RequestHelper provides access to the current request parameters.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class RequestHelper extends Helper
 {
@@ -44,6 +44,16 @@ class RequestHelper extends Helper
     public function getParameter($key, $default = null)
     {
         return $this->request->get($key, $default);
+    }
+
+    /**
+     * Returns the locale
+     *
+     * @return string
+     */
+    public function getLocale()
+    {
+        return $this->request->getLocale();
     }
 
     /**

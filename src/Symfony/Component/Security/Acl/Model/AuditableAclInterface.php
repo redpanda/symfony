@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Security\Acl\Model;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Security\Acl\Model;
 
 /**
  * This interface adds auditing capabilities to the ACL.
@@ -24,7 +24,6 @@ interface AuditableAclInterface extends MutableAclInterface
      * @param integer $index
      * @param Boolean $auditSuccess
      * @param Boolean $auditFailure
-     * @return void
      */
     function updateClassAuditing($index, $auditSuccess, $auditFailure);
 
@@ -32,12 +31,10 @@ interface AuditableAclInterface extends MutableAclInterface
      * Updates auditing for class-field-based ACE
      *
      * @param integer $index
-     * @param string $field
+     * @param string  $field
      * @param Boolean $auditSuccess
      * @param Boolean $auditFailure
-     * @return void
      */
-
     function updateClassFieldAuditing($index, $field, $auditSuccess, $auditFailure);
 
     /**
@@ -46,7 +43,6 @@ interface AuditableAclInterface extends MutableAclInterface
      * @param integer $index
      * @param Boolean $auditSuccess
      * @param Boolean $auditFailure
-     * @return void
      */
     function updateObjectAuditing($index, $auditSuccess, $auditFailure);
 
@@ -54,10 +50,9 @@ interface AuditableAclInterface extends MutableAclInterface
      * Updates auditing for object-field-based ACE
      *
      * @param integer $index
-     * @param string $field
+     * @param string  $field
      * @param Boolean $auditSuccess
      * @param Boolean $auditFailure
-     * @return void
      */
     function updateObjectFieldAuditing($index, $field, $auditSuccess, $auditFailure);
 }

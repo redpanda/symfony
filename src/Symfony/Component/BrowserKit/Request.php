@@ -1,20 +1,22 @@
 <?php
 
-namespace Symfony\Component\BrowserKit;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\BrowserKit;
+
 /**
  * Request object.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class Request
 {
@@ -24,6 +26,7 @@ class Request
     protected $files;
     protected $cookies;
     protected $server;
+    protected $content;
 
     /**
      * Constructor.
@@ -34,8 +37,11 @@ class Request
      * @param array  $files      An array of uploaded files
      * @param array  $cookies    An array of cookies
      * @param array  $server     An array of server parameters
+     * @param string $content    The raw body data
+     *
+     * @api
      */
-    public function __construct($uri, $method, array $parameters = array(), array $files = array(), array $cookies = array(), array $server = array())
+    public function __construct($uri, $method, array $parameters = array(), array $files = array(), array $cookies = array(), array $server = array(), $content = null)
     {
         $this->uri = $uri;
         $this->method = $method;
@@ -43,12 +49,15 @@ class Request
         $this->files = $files;
         $this->cookies = $cookies;
         $this->server = $server;
+        $this->content = $content;
     }
 
     /**
      * Gets the request URI.
      *
      * @return string The request URI
+     *
+     * @api
      */
     public function getUri()
     {
@@ -59,6 +68,8 @@ class Request
      * Gets the request HTTP method.
      *
      * @return string The request HTTP method
+     *
+     * @api
      */
     public function getMethod()
     {
@@ -69,6 +80,8 @@ class Request
      * Gets the request parameters.
      *
      * @return array The request parameters
+     *
+     * @api
      */
     public function getParameters()
     {
@@ -79,6 +92,8 @@ class Request
      * Gets the request server files.
      *
      * @return array The request files
+     *
+     * @api
      */
     public function getFiles()
     {
@@ -89,6 +104,8 @@ class Request
      * Gets the request cookies.
      *
      * @return array The request cookies
+     *
+     * @api
      */
     public function getCookies()
     {
@@ -99,9 +116,23 @@ class Request
      * Gets the request server parameters.
      *
      * @return array The request server parameters
+     *
+     * @api
      */
     public function getServer()
     {
         return $this->server;
+    }
+
+    /**
+     * Gets the request raw body data.
+     *
+     * @return string The request raw body data.
+     *
+     * @api
+     */
+    public function getContent()
+    {
+        return $this->content;
     }
 }

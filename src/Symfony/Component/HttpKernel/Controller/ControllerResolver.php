@@ -1,18 +1,18 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\HttpKernel\Controller;
 
 use Symfony\Component\HttpKernel\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
 
 /**
  * ControllerResolver.
@@ -21,11 +21,13 @@ use Symfony\Component\HttpFoundation\Request;
  * the controller to execute and uses the request attributes to determine
  * the controller method arguments.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class ControllerResolver implements ControllerResolverInterface
 {
-    protected $logger;
+    private $logger;
 
     /**
      * Constructor.
@@ -41,7 +43,7 @@ class ControllerResolver implements ControllerResolverInterface
      * Returns the Controller instance associated with a Request.
      *
      * This method looks for a '_controller' request attribute that represents
-     * the controller name (a string like ClassName:::MethodName).
+     * the controller name (a string like ClassName::MethodName).
      *
      * @param Request $request A Request instance
      *
@@ -49,29 +51,35 @@ class ControllerResolver implements ControllerResolverInterface
      *                       or false if this resolver is not able to determine the controller
      *
      * @throws \InvalidArgumentException|\LogicException If the controller can't be found
+     *
+     * @api
      */
     public function getController(Request $request)
     {
         if (!$controller = $request->attributes->get('_controller')) {
             if (null !== $this->logger) {
-                $this->logger->err('Unable to look for the controller as the "_controller" parameter is missing');
+                $this->logger->warn('Unable to look for the controller as the "_controller" parameter is missing');
             }
 
             return false;
         }
 
-        if ($controller instanceof \Closure) {
+        if (is_array($controller) || (is_object($controller) && method_exists($controller, '__invoke'))) {
             return $controller;
+        }
+
+        if (false === strpos($controller, ':')) {
+            if (method_exists($controller, '__invoke')) {
+                return new $controller;
+            } elseif (function_exists($controller)) {
+                return $controller;
+            }
         }
 
         list($controller, $method) = $this->createController($controller);
 
         if (!method_exists($controller, $method)) {
             throw new \InvalidArgumentException(sprintf('Method "%s::%s" does not exist.', get_class($controller), $method));
-        }
-
-        if (null !== $this->logger) {
-            $this->logger->info(sprintf('Using controller "%s::%s"', get_class($controller), $method));
         }
 
         return array($controller, $method);
@@ -84,29 +92,43 @@ class ControllerResolver implements ControllerResolverInterface
      * @param mixed   $controller A PHP callable
      *
      * @throws \RuntimeException When value for argument given is not provided
+     *
+     * @api
      */
     public function getArguments(Request $request, $controller)
     {
-        $attributes = $request->attributes->all();
-
         if (is_array($controller)) {
-            list($controller, $method) = $controller;
-            $m = new \ReflectionMethod($controller, $method);
-            $parameters = $m->getParameters();
-            $repr = sprintf('%s::%s()', get_class($controller), $method);
+            $r = new \ReflectionMethod($controller[0], $controller[1]);
+        } elseif (is_object($controller) && !$controller instanceof \Closure) {
+            $r = new \ReflectionObject($controller);
+            $r = $r->getMethod('__invoke');
         } else {
-            $f = new \ReflectionFunction($controller);
-            $parameters = $f->getParameters();
-            $repr = 'Closure';
+            $r = new \ReflectionFunction($controller);
         }
 
+        return $this->doGetArguments($request, $controller, $r->getParameters());
+    }
+
+    protected function doGetArguments(Request $request, $controller, array $parameters)
+    {
+        $attributes = $request->attributes->all();
         $arguments = array();
         foreach ($parameters as $param) {
             if (array_key_exists($param->getName(), $attributes)) {
                 $arguments[] = $attributes[$param->getName()];
+            } elseif ($param->getClass() && $param->getClass()->isInstance($request)) {
+                $arguments[] = $request;
             } elseif ($param->isDefaultValueAvailable()) {
                 $arguments[] = $param->getDefaultValue();
             } else {
+                if (is_array($controller)) {
+                    $repr = sprintf('%s::%s()', get_class($controller[0]), $controller[1]);
+                } elseif (is_object($controller)) {
+                    $repr = get_class($controller);
+                } else {
+                    $repr = $controller;
+                }
+
                 throw new \RuntimeException(sprintf('Controller "%s" requires that you provide a value for the "$%s" argument (because there is no default value or because there is a non optional argument after this one).', $repr, $param->getName()));
             }
         }
@@ -127,7 +149,7 @@ class ControllerResolver implements ControllerResolverInterface
             throw new \InvalidArgumentException(sprintf('Unable to find controller "%s".', $controller));
         }
 
-        list($class, $method) = explode('::', $controller);
+        list($class, $method) = explode('::', $controller, 2);
 
         if (!class_exists($class)) {
             throw new \InvalidArgumentException(sprintf('Class "%s" does not exist.', $class));

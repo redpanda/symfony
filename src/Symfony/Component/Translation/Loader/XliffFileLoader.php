@@ -1,36 +1,47 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Translation\Loader;
 
 use Symfony\Component\Translation\MessageCatalogue;
-use Symfony\Component\Translation\Resource\FileResource;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Config\Resource\FileResource;
 
 /**
  * XliffFileLoader loads translations from XLIFF files.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class XliffFileLoader implements LoaderInterface
 {
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function load($resource, $locale, $domain = 'messages')
     {
+        if (!stream_is_local($resource)) {
+            throw new \InvalidArgumentException(sprintf('This is not a local file "%s".', $resource));
+        }
+
         $xml = $this->parseFile($resource);
         $xml->registerXPathNamespace('xliff', 'urn:oasis:names:tc:xliff:document:1.2');
 
         $catalogue = new MessageCatalogue($locale);
         foreach ($xml->xpath('//xliff:trans-unit') as $translation) {
+            if (2 !== count($translation)) {
+                continue;
+            }
             $catalogue->set((string) $translation->source, (string) $translation->target, $domain);
         }
         $catalogue->addResource(new FileResource($resource));
@@ -41,18 +52,27 @@ class XliffFileLoader implements LoaderInterface
     /**
      * Validates and parses the given file into a SimpleXMLElement
      *
-     * @param  string $file
+     * @param string $file
+     *
      * @return SimpleXMLElement
      */
-    protected function parseFile($file)
+    private function parseFile($file)
     {
         $dom = new \DOMDocument();
         $current = libxml_use_internal_errors(true);
-        if (!@$dom->load($file, LIBXML_COMPACT)) {
-            throw new \Exception(implode("\n", $this->getXmlErrors()));
+        if (!@$dom->load($file, defined('LIBXML_COMPACT') ? LIBXML_COMPACT : 0)) {
+            throw new \RuntimeException(implode("\n", $this->getXmlErrors()));
         }
 
-        $parts = explode('/', str_replace('\\', '/', __DIR__).'/schema/dic/xliff-core/xml.xsd');
+        $location = str_replace('\\', '/', __DIR__).'/schema/dic/xliff-core/xml.xsd';
+        $parts = explode('/', $location);
+        if (0 === stripos($location, 'phar://')) {
+            $tmpfile = tempnam(sys_get_temp_dir(), 'sf2');
+            if ($tmpfile) {
+                copy($location, $tmpfile);
+                $parts = explode('/', str_replace('\\', '/', $tmpfile));
+            }
+        }
         $drive = '\\' === DIRECTORY_SEPARATOR ? array_shift($parts).'/' : '';
         $location = 'file:///'.$drive.implode('/', array_map('rawurlencode', $parts));
 
@@ -60,7 +80,7 @@ class XliffFileLoader implements LoaderInterface
         $source = str_replace('http://www.w3.org/2001/xml.xsd', $location, $source);
 
         if (!@$dom->schemaValidateSource($source)) {
-            throw new \Exception(implode("\n", $this->getXmlErrors()));
+            throw new \RuntimeException(implode("\n", $this->getXmlErrors()));
         }
         $dom->validateOnParse = true;
         $dom->normalizeDocument();
@@ -74,7 +94,7 @@ class XliffFileLoader implements LoaderInterface
      *
      * @return array  An array of errors
      */
-    protected function getXmlErrors()
+    private function getXmlErrors()
     {
         $errors = array();
         foreach (libxml_get_errors() as $error) {

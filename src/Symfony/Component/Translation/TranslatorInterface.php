@@ -1,20 +1,22 @@
 <?php
 
-namespace Symfony\Component\Translation;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Translation;
 
 /**
  * TranslatorInterface.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 interface TranslatorInterface
 {
@@ -27,6 +29,8 @@ interface TranslatorInterface
      * @param string $locale     The locale
      *
      * @return string The translated string
+     *
+     * @api
      */
     function trans($id, array $parameters = array(), $domain = null, $locale = null);
 
@@ -40,6 +44,8 @@ interface TranslatorInterface
      * @param string  $locale     The locale
      *
      * @return string The translated string
+     *
+     * @api
      */
     function transChoice($id, $number, array $parameters = array(), $domain = null, $locale = null);
 
@@ -47,6 +53,8 @@ interface TranslatorInterface
      * Sets the current locale.
      *
      * @param string $locale The locale
+     *
+     * @api
      */
     function setLocale($locale);
 
@@ -54,6 +62,8 @@ interface TranslatorInterface
      * Returns the current locale.
      *
      * @return string The locale
+     *
+     * @api
      */
     function getLocale();
 }

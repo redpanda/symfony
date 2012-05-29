@@ -1,20 +1,22 @@
 <?php
 
-namespace Symfony\Component\Templating\Helper;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\Templating\Helper;
+
 /**
  * HelperInterface is the interface all helpers must implement.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 interface HelperInterface
 {
@@ -22,6 +24,8 @@ interface HelperInterface
      * Returns the canonical name of this helper.
      *
      * @return string The canonical name
+     *
+     * @api
      */
     function getName();
 
@@ -29,6 +33,8 @@ interface HelperInterface
      * Sets the default charset.
      *
      * @param string $charset The charset
+     *
+     * @api
      */
     function setCharset($charset);
 
@@ -36,6 +42,8 @@ interface HelperInterface
      * Gets the default charset.
      *
      * @return string The default charset
+     *
+     * @api
      */
     function getCharset();
 }

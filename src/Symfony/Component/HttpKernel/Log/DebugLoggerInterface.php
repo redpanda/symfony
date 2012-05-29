@@ -1,20 +1,20 @@
 <?php
 
-namespace Symfony\Component\HttpKernel\Log;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\HttpKernel\Log;
 
 /**
  * DebugLoggerInterface.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 interface DebugLoggerInterface
 {
@@ -23,6 +23,7 @@ interface DebugLoggerInterface
      *
      * A log is an array with the following mandatory keys:
      * timestamp, message, priority, and priorityName.
+     * It can also have an optional context key containing an array.
      *
      * @return array An array of logs
      */

@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Security\Acl\Permission;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Security\Acl\Permission;
 
 /**
  * This class allows you to build cumulative permissions easily, or convert
@@ -67,13 +67,12 @@ class MaskBuilder
     const OFF               = '.';
     const ON                = '*';
 
-    protected $mask;
+    private $mask;
 
     /**
      * Constructor
      *
      * @param integer $mask optional; defaults to 0
-     * @return void
      */
     public function __construct($mask = 0)
     {
@@ -88,13 +87,13 @@ class MaskBuilder
      * Adds a mask to the permission
      *
      * @param mixed $mask
-     * @return PermissionBuilder
+     * @return MaskBuilder
      */
     public function add($mask)
     {
-        if (is_string($mask) && defined($name = 'self::MASK_'.strtoupper($mask))) {
+        if (is_string($mask) && defined($name = 'static::MASK_'.strtoupper($mask))) {
             $mask = constant($name);
-        } else if (!is_int($mask)) {
+        } elseif (!is_int($mask)) {
             throw new \InvalidArgumentException('$mask must be an integer.');
         }
 
@@ -141,13 +140,13 @@ class MaskBuilder
      * Removes a mask from the permission
      *
      * @param mixed $mask
-     * @return PermissionBuilder
+     * @return MaskBuilder
      */
     public function remove($mask)
     {
-        if (is_string($mask) && defined($name = 'self::MASK_'.strtoupper($mask))) {
+        if (is_string($mask) && defined($name = 'static::MASK_'.strtoupper($mask))) {
             $mask = constant($name);
-        } else if (!is_int($mask)) {
+        } elseif (!is_int($mask)) {
             throw new \InvalidArgumentException('$mask must be an integer.');
         }
 
@@ -159,7 +158,7 @@ class MaskBuilder
     /**
      * Resets the PermissionBuilder
      *
-     * @return PermissionBuilder
+     * @return MaskBuilder
      */
     public function reset()
     {
@@ -176,7 +175,7 @@ class MaskBuilder
      * @throws \RuntimeException
      * @return string
      */
-    public static function getCode($mask)
+    static public function getCode($mask)
     {
         if (!is_int($mask)) {
             throw new \InvalidArgumentException('$mask must be an integer.');
@@ -189,7 +188,7 @@ class MaskBuilder
             }
 
             if ($mask === $cMask) {
-                if (!defined($cName = 'self::CODE_'.substr($name, 5))) {
+                if (!defined($cName = 'static::CODE_'.substr($name, 5))) {
                     throw new \RuntimeException('There was no code defined for this mask.');
                 }
 

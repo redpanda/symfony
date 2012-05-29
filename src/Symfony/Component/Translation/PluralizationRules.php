@@ -1,38 +1,38 @@
 <?php
 
-namespace Symfony\Component\Translation;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Translation;
 
 /**
  * Returns the plural rules for a given locale.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class PluralizationRules
 {
     // @codeCoverageIgnoreStart
-    static protected $rules = array();
+    static private $rules = array();
 
     /**
      * Returns the plural position to use for the given locale and number.
      *
-     * @param  integer $number The number
-     * @param  string  $locale The locale
+     * @param integer $number The number
+     * @param string  $locale The locale
      *
      * @return integer The plural position
      */
     static public function get($number, $locale)
     {
         if ("pt_BR" == $locale) {
-            // temporary set a locale for brasilian
+            // temporary set a locale for brazilian
             $locale = "xbr";
         }
 
@@ -198,7 +198,7 @@ class PluralizationRules
     static public function set($rule, $locale)
     {
         if ("pt_BR" == $locale) {
-            // temporary set a locale for brasilian
+            // temporary set a locale for brazilian
             $locale = "xbr";
         }
 
@@ -207,7 +207,7 @@ class PluralizationRules
         }
 
         if (!is_callable($rule)) {
-            throw new Exception('The given rule can not be called');
+            throw new \LogicException('The given rule can not be called');
         }
 
         self::$rules[$locale] = $rule;

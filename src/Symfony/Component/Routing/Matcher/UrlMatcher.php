@@ -1,106 +1,193 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Routing\Matcher;
 
-use Symfony\Component\Routing\Route;
+use Symfony\Component\Routing\Exception\MethodNotAllowedException;
+use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\RouteCollection;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Routing\RequestContext;
+use Symfony\Component\Routing\Route;
 
 /**
  * UrlMatcher matches URL based on a set of routes.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class UrlMatcher implements UrlMatcherInterface
 {
-    protected $routes;
-    protected $defaults;
+    const REQUIREMENT_MATCH     = 0;
+    const REQUIREMENT_MISMATCH  = 1;
+    const ROUTE_MATCH           = 2;
+
     protected $context;
+    protected $allow;
+
+    private $routes;
 
     /**
      * Constructor.
      *
-     * @param RouteCollection $routes   A RouteCollection instance
-     * @param array           $context  The context
-     * @param array           $defaults The default values
+     * @param RouteCollection $routes  A RouteCollection instance
+     * @param RequestContext  $context The context
+     *
+     * @api
      */
-    public function __construct(RouteCollection $routes, array $context = array(), array $defaults = array())
+    public function __construct(RouteCollection $routes, RequestContext $context)
     {
         $this->routes = $routes;
         $this->context = $context;
-        $this->defaults = $defaults;
+    }
+
+    /**
+     * Sets the request context.
+     *
+     * @param RequestContext $context The context
+     *
+     * @api
+     */
+    public function setContext(RequestContext $context)
+    {
+        $this->context = $context;
+    }
+
+    /**
+     * Gets the request context.
+     *
+     * @return RequestContext The context
+     */
+    public function getContext()
+    {
+        return $this->context;
     }
 
     /**
      * Tries to match a URL with a set of routes.
      *
-     * Returns false if no route matches the URL.
+     * @param string $pathinfo The path info to be parsed (raw format, i.e. not urldecoded)
      *
-     * @param  string $url URL to be parsed
+     * @return array An array of parameters
      *
-     * @return array|false An array of parameters or false if no route matches
+     * @throws ResourceNotFoundException If the resource could not be found
+     * @throws MethodNotAllowedException If the resource was found but the request method is not allowed
+     *
+     * @api
      */
-    public function match($url)
+    public function match($pathinfo)
     {
-        $url = $this->normalizeUrl($url);
+        $this->allow = array();
 
-        foreach ($this->routes->all() as $name => $route) {
+        if ($ret = $this->matchCollection(rawurldecode($pathinfo), $this->routes)) {
+            return $ret;
+        }
+
+        throw 0 < count($this->allow)
+            ? new MethodNotAllowedException(array_unique(array_map('strtoupper', $this->allow)))
+            : new ResourceNotFoundException();
+    }
+
+    /**
+     * Tries to match a URL with a set of routes.
+     *
+     * @param string          $pathinfo The path info to be parsed
+     * @param RouteCollection $routes   The set of routes
+     *
+     * @return array An array of parameters
+     *
+     * @throws ResourceNotFoundException If the resource could not be found
+     * @throws MethodNotAllowedException If the resource was found but the request method is not allowed
+     */
+    protected function matchCollection($pathinfo, RouteCollection $routes)
+    {
+        foreach ($routes as $name => $route) {
+            if ($route instanceof RouteCollection) {
+                if (false === strpos($route->getPrefix(), '{') && $route->getPrefix() !== substr($pathinfo, 0, strlen($route->getPrefix()))) {
+                    continue;
+                }
+
+                if (!$ret = $this->matchCollection($pathinfo, $route)) {
+                    continue;
+                }
+
+                return $ret;
+            }
+
             $compiledRoute = $route->compile();
 
-            // check HTTP method requirement
-
-            if (isset($this->context['method']) && (($req = $route->getRequirement('_method')) && !preg_match(sprintf('#^(%s)$#xi', $req), $this->context['method']))) {
-                continue;
-            }
-
             // check the static prefix of the URL first. Only use the more expensive preg_match when it matches
-            if ('' !== $compiledRoute->getStaticPrefix() && 0 !== strpos($url, $compiledRoute->getStaticPrefix())) {
+            if ('' !== $compiledRoute->getStaticPrefix() && 0 !== strpos($pathinfo, $compiledRoute->getStaticPrefix())) {
                 continue;
             }
 
-            if (!preg_match($compiledRoute->getRegex(), $url, $matches)) {
+            if (!preg_match($compiledRoute->getRegex(), $pathinfo, $matches)) {
+                continue;
+            }
+
+            // check HTTP method requirement
+            if ($req = $route->getRequirement('_method')) {
+                // HEAD and GET are equivalent as per RFC
+                if ('HEAD' === $method = $this->context->getMethod()) {
+                    $method = 'GET';
+                }
+
+                if (!in_array($method, $req = explode('|', strtoupper($req)))) {
+                    $this->allow = array_merge($this->allow, $req);
+
+                    continue;
+                }
+            }
+
+            $status = $this->handleRouteRequirements($pathinfo, $name, $route);
+
+            if (self::ROUTE_MATCH === $status[0]) {
+                return $status[1];
+            }
+
+            if (self::REQUIREMENT_MISMATCH === $status[0]) {
                 continue;
             }
 
             return array_merge($this->mergeDefaults($matches, $route->getDefaults()), array('_route' => $name));
         }
-
-        return false;
     }
+
+    /**
+     * Handles specific route requirements.
+     *
+     * @param string $pathinfo The path
+     * @param string $name     The route name
+     * @param string $route    The route
+     *
+     * @return array The first element represents the status, the second contains additional information
+     */
+    protected function handleRouteRequirements($pathinfo, $name, Route $route)
+    {
+            // check HTTP scheme requirement
+            $scheme = $route->getRequirement('_scheme');
+            $status = $scheme && $scheme !== $this->context->getScheme() ? self::REQUIREMENT_MISMATCH : self::REQUIREMENT_MATCH;
+
+            return array($status, null);
+   }
 
     protected function mergeDefaults($params, $defaults)
     {
-        $parameters = array_merge($this->defaults, $defaults);
+        $parameters = $defaults;
         foreach ($params as $key => $value) {
             if (!is_int($key)) {
-                $parameters[$key] = urldecode($value);
+                $parameters[$key] = $value;
             }
         }
 
         return $parameters;
-    }
-
-    protected function normalizeUrl($url)
-    {
-        // ensure that the URL starts with a /
-        if ('/' !== substr($url, 0, 1)) {
-            $url = '/'.$url;
-        }
-
-        // remove the query string
-        if (false !== $pos = strpos($url, '?')) {
-            $url = substr($url, 0, $pos);
-        }
-
-        // remove multiple /
-        return preg_replace('#/+#', '/', $url);
     }
 }

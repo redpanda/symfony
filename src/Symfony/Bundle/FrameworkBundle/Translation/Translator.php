@@ -1,32 +1,31 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Bundle\FrameworkBundle\Translation;
 
 use Symfony\Component\Translation\Translator as BaseTranslator;
-use Symfony\Component\Translation\Loader\LoaderInterface;
 use Symfony\Component\Translation\MessageSelector;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpFoundation\Session;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Config\ConfigCache;
 
 /**
  * Translator.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class Translator extends BaseTranslator
 {
     protected $container;
     protected $options;
-    protected $session;
+    protected $loaderIds;
 
     /**
      * Constructor.
@@ -38,15 +37,13 @@ class Translator extends BaseTranslator
      *
      * @param ContainerInterface $container A ContainerInterface instance
      * @param MessageSelector    $selector  The message selector for pluralization
+     * @param array              $loaderIds An array of loader Ids
      * @param array              $options   An array of options
-     * @param Session            $session   A Session instance
      */
-    public function __construct(ContainerInterface $container, MessageSelector $selector, array $options = array(), Session $session = null)
+    public function __construct(ContainerInterface $container, MessageSelector $selector, $loaderIds = array(), array $options = array())
     {
-        parent::__construct(null, $selector);
-
-        $this->session = $session;
         $this->container = $container;
+        $this->loaderIds = $loaderIds;
 
         $this->options = array(
             'cache_dir' => null,
@@ -55,10 +52,12 @@ class Translator extends BaseTranslator
 
         // check option names
         if ($diff = array_diff(array_keys($options), array_keys($this->options))) {
-            throw new \InvalidArgumentException(sprintf('The Router does not support the following options: \'%s\'.', implode('\', \'', $diff)));
+            throw new \InvalidArgumentException(sprintf('The Translator does not support the following options: \'%s\'.', implode('\', \'', $diff)));
         }
 
         $this->options = array_merge($this->options, $options);
+
+        parent::__construct(null, $selector);
     }
 
     /**
@@ -66,8 +65,8 @@ class Translator extends BaseTranslator
      */
     public function getLocale()
     {
-        if (null === $this->locale && null !== $this->session) {
-            $this->locale = $this->session->getLocale();
+        if (null === $this->locale && $this->container->has('request')) {
+            $this->locale = $this->container->get('request')->getLocale();
         }
 
         return $this->locale;
@@ -88,91 +87,62 @@ class Translator extends BaseTranslator
             return parent::loadCatalogue($locale);
         }
 
-        if ($this->needsReload($locale)) {
+        $cache = new ConfigCache($this->options['cache_dir'].'/catalogue.'.$locale.'.php', $this->options['debug']);
+        if (!$cache->isFresh()) {
             $this->initialize();
 
             parent::loadCatalogue($locale);
 
-            $this->updateCache($locale);
+            $fallbackContent = '';
+            $current = '';
+            foreach ($this->computeFallbackLocales($locale) as $fallback) {
+                $fallbackContent .= sprintf(<<<EOF
+\$catalogue%s = new MessageCatalogue('%s', %s);
+\$catalogue%s->addFallbackCatalogue(\$catalogue%s);
+
+
+EOF
+                    ,
+                    ucfirst($fallback),
+                    $fallback,
+                    var_export($this->catalogues[$fallback]->all(), true),
+                    ucfirst($current),
+                    ucfirst($fallback)
+                );
+                $current = $fallback;
+            }
+
+            $content = sprintf(<<<EOF
+<?php
+
+use Symfony\Component\Translation\MessageCatalogue;
+
+\$catalogue = new MessageCatalogue('%s', %s);
+
+%s
+return \$catalogue;
+
+EOF
+                ,
+                $locale,
+                var_export($this->catalogues[$locale]->all(), true),
+                $fallbackContent
+            );
+
+            $cache->write($content, $this->catalogues[$locale]->getResources());
 
             return;
         }
 
-        $this->catalogues[$locale] = include $this->getCacheFile($locale);
+        $this->catalogues[$locale] = include $cache;
     }
 
     protected function initialize()
     {
-        foreach ($this->container->findTaggedServiceIds('translation.loader') as $id => $attributes) {
-            $this->addLoader($attributes[0]['alias'], $this->container->get($id));
-        }
-
-        foreach ($this->container->getParameter('translation.resources') as $resource) {
-            $this->addResource($resource[0], $resource[1], $resource[2], $resource[3]);
-        }
-    }
-
-    protected function updateCache($locale)
-    {
-        $this->writeCacheFile($this->getCacheFile($locale), sprintf(
-            "<?php use Symfony\Component\Translation\MessageCatalogue; return new MessageCatalogue('%s', %s);",
-            $locale,
-            var_export($this->catalogues[$locale]->all(), true)
-        ));
-
-        if ($this->options['debug']) {
-            $this->writeCacheFile($this->getCacheFile($locale, 'meta'), serialize($this->catalogues[$locale]->getResources()));
-        }
-    }
-
-    protected function needsReload($locale)
-    {
-        $file = $this->getCacheFile($locale);
-        if (!file_exists($file)) {
-            return true;
-        }
-
-        if (!$this->options['debug']) {
-            return false;
-        }
-
-        $metadata = $this->getCacheFile($locale, 'meta');
-        if (!file_exists($metadata)) {
-            return true;
-        }
-
-        $time = filemtime($file);
-        $meta = unserialize(file_get_contents($metadata));
-        foreach ($meta as $resource) {
-            if (!$resource->isUptodate($time)) {
-                return true;
+        foreach ($this->loaderIds as $id => $aliases) {
+            foreach ($aliases as $alias) {
+                $this->addLoader($alias, $this->container->get($id));
             }
         }
-
-        return false;
-    }
-
-    protected function getCacheFile($locale, $extension = 'php')
-    {
-        return $this->options['cache_dir'].'/catalogue.'.$locale.'.'.$extension;
-    }
-
-    /**
-     * @throws \RuntimeException When cache file can't be wrote
-     */
-    protected function writeCacheFile($file, $content)
-    {
-        if (!is_dir(dirname($file))) {
-            @mkdir(dirname($file), 0777, true);
-        }
-
-        $tmpFile = tempnam(dirname($file), basename($file));
-        if (false !== @file_put_contents($tmpFile, $content) && @rename($tmpFile, $file)) {
-            chmod($file, 0644);
-
-            return;
-        }
-
-        throw new \RuntimeException(sprintf('Failed to write cache file "%s".', $file));
     }
 }

@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Security\Acl\Dbal;
 
 use Doctrine\Common\PropertyChangedListener;
@@ -18,15 +27,6 @@ use Symfony\Component\Security\Acl\Model\ObjectIdentityInterface;
 use Symfony\Component\Security\Acl\Model\PermissionGrantingStrategyInterface;
 use Symfony\Component\Security\Acl\Model\SecurityIdentityInterface;
 
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
-
 /**
  * An implementation of the MutableAclProviderInterface using Doctrine DBAL.
  *
@@ -34,14 +34,14 @@ use Symfony\Component\Security\Acl\Model\SecurityIdentityInterface;
  */
 class MutableAclProvider extends AclProvider implements MutableAclProviderInterface, PropertyChangedListener
 {
-    protected $propertyChanges;
+    private $propertyChanges;
 
     /**
      * {@inheritDoc}
      */
-    public function __construct(Connection $connection, PermissionGrantingStrategyInterface $permissionGrantingStrategy, array $options, AclCacheInterface $aclCache = null)
+    public function __construct(Connection $connection, PermissionGrantingStrategyInterface $permissionGrantingStrategy, array $options, AclCacheInterface $cache = null)
     {
-        parent::__construct($connection, $permissionGrantingStrategy, $options, $aclCache);
+        parent::__construct($connection, $permissionGrantingStrategy, $options, $cache);
 
         $this->propertyChanges = new \SplObjectStorage();
     }
@@ -104,8 +104,8 @@ class MutableAclProvider extends AclProvider implements MutableAclProviderInterf
         }
 
         // evict the ACL from any caches
-        if (null !== $this->aclCache) {
-            $this->aclCache->evictFromCacheByIdentity($oid);
+        if (null !== $this->cache) {
+            $this->cache->evictFromCacheByIdentity($oid);
         }
     }
 
@@ -144,11 +144,10 @@ class MutableAclProvider extends AclProvider implements MutableAclProviderInterf
      * This allows us to keep track of which values have been changed, so we don't
      * have to do a full introspection when ->updateAcl() is called.
      *
-     * @param mixed $sender
+     * @param mixed  $sender
      * @param string $propertyName
-     * @param mixed $oldValue
-     * @param mixed $newValue
-     * @return void
+     * @param mixed  $oldValue
+     * @param mixed  $newValue
      */
     public function propertyChanged($sender, $propertyName, $oldValue, $newValue)
     {
@@ -246,6 +245,10 @@ class MutableAclProvider extends AclProvider implements MutableAclProviderInterf
                 }
 
                 $this->regenerateAncestorRelations($acl);
+                $childAcls = $this->findAcls($this->findChildren($acl->getObjectIdentity(), false));
+                foreach ($childAcls as $childOid) {
+                    $this->regenerateAncestorRelations($childAcls[$childOid]);
+                }
             }
 
             // this includes only updates of existing ACEs, but neither the creation, nor
@@ -312,108 +315,23 @@ class MutableAclProvider extends AclProvider implements MutableAclProviderInterf
 
         $this->propertyChanges->offsetSet($acl, array());
 
-        if (null !== $this->aclCache) {
+        if (null !== $this->cache) {
             if (count($sharedPropertyChanges) > 0) {
                 // FIXME: Currently, there is no easy way to clear the cache for ACLs
                 //        of a certain type. The problem here is that we need to make
                 //        sure to clear the cache of all child ACLs as well, and these
                 //        child ACLs might be of a different class type.
-                $this->aclCache->clearCache();
+                $this->cache->clearCache();
             } else {
                 // if there are no shared property changes, it's sufficient to just delete
                 // the cache for this ACL
-                $this->aclCache->evictFromCacheByIdentity($acl->getObjectIdentity());
+                $this->cache->evictFromCacheByIdentity($acl->getObjectIdentity());
 
                 foreach ($this->findChildren($acl->getObjectIdentity()) as $childOid) {
-                    $this->aclCache->evictFromCacheByIdentity($childOid);
+                    $this->cache->evictFromCacheByIdentity($childOid);
                 }
             }
         }
-    }
-
-    /**
-     * Creates the ACL for the passed object identity
-     *
-     * @param ObjectIdentityInterface $oid
-     * @return void
-     */
-    protected function createObjectIdentity(ObjectIdentityInterface $oid)
-    {
-        $classId = $this->createOrRetrieveClassId($oid->getType());
-
-        $this->connection->executeQuery($this->getInsertObjectIdentitySql($oid->getIdentifier(), $classId, true));
-    }
-
-    /**
-     * Returns the primary key for the passed class type.
-     *
-     * If the type does not yet exist in the database, it will be created.
-     *
-     * @param string $classType
-     * @return integer
-     */
-    protected function createOrRetrieveClassId($classType)
-    {
-        if (false !== $id = $this->connection->executeQuery($this->getSelectClassIdSql($classType))->fetchColumn()) {
-            return $id;
-        }
-
-        $this->connection->executeQuery($this->getInsertClassSql($classType));
-
-        return $this->connection->executeQuery($this->getSelectClassIdSql($classType))->fetchColumn();
-    }
-
-    /**
-     * Returns the primary key for the passed security identity.
-     *
-     * If the security identity does not yet exist in the database, it will be
-     * created.
-     *
-     * @param SecurityIdentityInterface $sid
-     * @return integer
-     */
-    protected function createOrRetrieveSecurityIdentityId(SecurityIdentityInterface $sid)
-    {
-        if (false !== $id = $this->connection->executeQuery($this->getSelectSecurityIdentityIdSql($sid))->fetchColumn()) {
-            return $id;
-        }
-
-        $this->connection->executeQuery($this->getInsertSecurityIdentitySql($sid));
-
-        return $this->connection->executeQuery($this->getSelectSecurityIdentityIdSql($sid))->fetchColumn();
-    }
-
-    /**
-     * Deletes all ACEs for the given object identity primary key.
-     *
-     * @param integer $oidPK
-     * @return void
-     */
-    protected function deleteAccessControlEntries($oidPK)
-    {
-        $this->connection->executeQuery($this->getDeleteAccessControlEntriesSql($oidPK));
-    }
-
-    /**
-     * Deletes the object identity from the database.
-     *
-     * @param integer $pk
-     * @return void
-     */
-    protected function deleteObjectIdentity($pk)
-    {
-        $this->connection->executeQuery($this->getDeleteObjectIdentitySql($pk));
-    }
-
-    /**
-     * Deletes all entries from the relations table from the database.
-     *
-     * @param integer $pk
-     * @return void
-     */
-    protected function deleteObjectIdentityRelations($pk)
-    {
-        $this->connection->executeQuery($this->getDeleteObjectIdentityRelationsSql($pk));
     }
 
     /**
@@ -479,16 +397,16 @@ class MutableAclProvider extends AclProvider implements MutableAclProviderInterf
     /**
      * Constructs the SQL for inserting an ACE.
      *
-     * @param integer $classId
+     * @param integer      $classId
      * @param integer|null $objectIdentityId
-     * @param string|null $field
-     * @param integer $aceOrder
-     * @param integer $securityIdentityId
-     * @param string $strategy
-     * @param integer $mask
-     * @param Boolean $granting
-     * @param Boolean $auditSuccess
-     * @param Boolean $auditFailure
+     * @param string|null  $field
+     * @param integer      $aceOrder
+     * @param integer      $securityIdentityId
+     * @param string       $strategy
+     * @param integer      $mask
+     * @param Boolean      $granting
+     * @param Boolean      $auditSuccess
+     * @param Boolean      $auditFailure
      * @return string
      */
     protected function getInsertAccessControlEntrySql($classId, $objectIdentityId, $field, $aceOrder, $securityIdentityId, $strategy, $mask, $granting, $auditSuccess, $auditFailure)
@@ -560,7 +478,7 @@ QUERY;
     /**
      * Constructs the SQL for inserting an object identity.
      *
-     * @param string $identifier
+     * @param string  $identifier
      * @param integer $classId
      * @param Boolean $entriesInheriting
      * @return string
@@ -591,9 +509,9 @@ QUERY;
     protected function getInsertSecurityIdentitySql(SecurityIdentityInterface $sid)
     {
         if ($sid instanceof UserSecurityIdentity) {
-            $identifier = $sid->getUsername();
+            $identifier = $sid->getClass().'-'.$sid->getUsername();
             $username = true;
-        } else if ($sid instanceof RoleSecurityIdentity) {
+        } elseif ($sid instanceof RoleSecurityIdentity) {
             $identifier = $sid->getRole();
             $username = false;
         } else {
@@ -613,7 +531,7 @@ QUERY;
      *
      * @param integer $classId
      * @param integer $oid
-     * @param string $field
+     * @param string  $field
      * @param integer $order
      * @return string
      */
@@ -659,9 +577,9 @@ QUERY;
     protected function getSelectSecurityIdentityIdSql(SecurityIdentityInterface $sid)
     {
         if ($sid instanceof UserSecurityIdentity) {
-            $identifier = $sid->getUsername();
+            $identifier = $sid->getClass().'-'.$sid->getUsername();
             $username = true;
-        } else if ($sid instanceof RoleSecurityIdentity) {
+        } elseif ($sid instanceof RoleSecurityIdentity) {
             $identifier = $sid->getRole();
             $username = false;
         } else {
@@ -680,7 +598,7 @@ QUERY;
      * Constructs the SQL for updating an object identity.
      *
      * @param integer $pk
-     * @param array $changes
+     * @param array   $changes
      * @throws \InvalidArgumentException
      * @return string
      */
@@ -702,7 +620,7 @@ QUERY;
      * Constructs the SQL for updating an ACE.
      *
      * @param integer $pk
-     * @param array $sets
+     * @param array   $sets
      * @throws \InvalidArgumentException
      * @return string
      */
@@ -721,12 +639,92 @@ QUERY;
     }
 
     /**
+     * Creates the ACL for the passed object identity
+     *
+     * @param ObjectIdentityInterface $oid
+     */
+    private function createObjectIdentity(ObjectIdentityInterface $oid)
+    {
+        $classId = $this->createOrRetrieveClassId($oid->getType());
+
+        $this->connection->executeQuery($this->getInsertObjectIdentitySql($oid->getIdentifier(), $classId, true));
+    }
+
+    /**
+     * Returns the primary key for the passed class type.
+     *
+     * If the type does not yet exist in the database, it will be created.
+     *
+     * @param string $classType
+     * @return integer
+     */
+    private function createOrRetrieveClassId($classType)
+    {
+        if (false !== $id = $this->connection->executeQuery($this->getSelectClassIdSql($classType))->fetchColumn()) {
+            return $id;
+        }
+
+        $this->connection->executeQuery($this->getInsertClassSql($classType));
+
+        return $this->connection->executeQuery($this->getSelectClassIdSql($classType))->fetchColumn();
+    }
+
+    /**
+     * Returns the primary key for the passed security identity.
+     *
+     * If the security identity does not yet exist in the database, it will be
+     * created.
+     *
+     * @param SecurityIdentityInterface $sid
+     * @return integer
+     */
+    private function createOrRetrieveSecurityIdentityId(SecurityIdentityInterface $sid)
+    {
+        if (false !== $id = $this->connection->executeQuery($this->getSelectSecurityIdentityIdSql($sid))->fetchColumn()) {
+            return $id;
+        }
+
+        $this->connection->executeQuery($this->getInsertSecurityIdentitySql($sid));
+
+        return $this->connection->executeQuery($this->getSelectSecurityIdentityIdSql($sid))->fetchColumn();
+    }
+
+    /**
+     * Deletes all ACEs for the given object identity primary key.
+     *
+     * @param integer $oidPK
+     */
+    private function deleteAccessControlEntries($oidPK)
+    {
+        $this->connection->executeQuery($this->getDeleteAccessControlEntriesSql($oidPK));
+    }
+
+    /**
+     * Deletes the object identity from the database.
+     *
+     * @param integer $pk
+     */
+    private function deleteObjectIdentity($pk)
+    {
+        $this->connection->executeQuery($this->getDeleteObjectIdentitySql($pk));
+    }
+
+    /**
+     * Deletes all entries from the relations table from the database.
+     *
+     * @param integer $pk
+     */
+    private function deleteObjectIdentityRelations($pk)
+    {
+        $this->connection->executeQuery($this->getDeleteObjectIdentityRelationsSql($pk));
+    }
+
+    /**
      * This regenerates the ancestor table which is used for fast read access.
      *
      * @param AclInterface $acl
-     * @return void
      */
-    protected function regenerateAncestorRelations(AclInterface $acl)
+    private function regenerateAncestorRelations(AclInterface $acl)
     {
         $pk = $acl->getId();
         $this->connection->executeQuery($this->getDeleteObjectIdentityRelationsSql($pk));
@@ -744,10 +742,9 @@ QUERY;
      * This processes changes on an ACE related property (classFieldAces, or objectFieldAces).
      *
      * @param string $name
-     * @param array $changes
-     * @return void
+     * @param array  $changes
      */
-    protected function updateFieldAceProperty($name, array $changes)
+    private function updateFieldAceProperty($name, array $changes)
     {
         $sids = new \SplObjectStorage();
         $classIds = new \SplObjectStorage();
@@ -776,7 +773,7 @@ QUERY;
                     $aceId = $this->connection->executeQuery($this->getSelectAccessControlEntryIdSql($classId, $objectIdentityId, $field, $i))->fetchColumn();
                     $this->loadedAces[$aceId] = $ace;
 
-                    $aceIdProperty = new \ReflectionProperty($ace, 'id');
+                    $aceIdProperty = new \ReflectionProperty('Symfony\Component\Security\Acl\Domain\Entry', 'id');
                     $aceIdProperty->setAccessible(true);
                     $aceIdProperty->setValue($ace, intval($aceId));
                 } else {
@@ -785,7 +782,7 @@ QUERY;
             }
         }
 
-        foreach ($changes[0] as $field => $old) {
+        foreach ($changes[0] as $old) {
             for ($i=0,$c=count($old); $i<$c; $i++) {
                 $ace = $old[$i];
 
@@ -801,10 +798,9 @@ QUERY;
      * This processes changes on an ACE related property (classAces, or objectAces).
      *
      * @param string $name
-     * @param array $changes
-     * @return void
+     * @param array  $changes
      */
-    protected function updateAceProperty($name, array $changes)
+    private function updateAceProperty($name, array $changes)
     {
         list($old, $new) = $changes;
 
@@ -856,12 +852,10 @@ QUERY;
      * Persists the changes which were made to ACEs to the database.
      *
      * @param \SplObjectStorage $aces
-     * @return void
      */
-    protected function updateAces(\SplObjectStorage $aces)
+    private function updateAces(\SplObjectStorage $aces)
     {
-        foreach ($aces as $ace)
-        {
+        foreach ($aces as $ace) {
             $propertyChanges = $aces->offsetGet($ace);
             $sets = array();
 

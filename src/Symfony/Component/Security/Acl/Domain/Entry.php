@@ -1,21 +1,19 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Security\Acl\Domain;
 
 use Symfony\Component\Security\Acl\Model\AclInterface;
 use Symfony\Component\Security\Acl\Model\AuditableEntryInterface;
-use Symfony\Component\Security\Acl\Model\EntryInterface;
-use Symfony\Component\Security\Acl\Model\PermissionInterface;
 use Symfony\Component\Security\Acl\Model\SecurityIdentityInterface;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
 
 /**
  * Auditable ACE implementation
@@ -24,26 +22,26 @@ use Symfony\Component\Security\Acl\Model\SecurityIdentityInterface;
  */
 class Entry implements AuditableEntryInterface
 {
-    protected $acl;
-    protected $mask;
-    protected $id;
-    protected $securityIdentity;
-    protected $strategy;
-    protected $auditFailure;
-    protected $auditSuccess;
-    protected $granting;
+    private $acl;
+    private $mask;
+    private $id;
+    private $securityIdentity;
+    private $strategy;
+    private $auditFailure;
+    private $auditSuccess;
+    private $granting;
 
     /**
      * Constructor
      *
-     * @param integer $id
-     * @param AclInterface $acl
+     * @param integer                   $id
+     * @param AclInterface              $acl
      * @param SecurityIdentityInterface $sid
-     * @param string $strategy
-     * @param integer $mask
-     * @param Boolean $granting
-     * @param Boolean $auditFailure
-     * @param Boolean $auditSuccess
+     * @param string                    $strategy
+     * @param integer                   $mask
+     * @param Boolean                   $granting
+     * @param Boolean                   $auditFailure
+     * @param Boolean                   $auditSuccess
      */
     public function __construct($id, AclInterface $acl, SecurityIdentityInterface $sid, $strategy, $mask, $granting, $auditFailure, $auditSuccess)
     {
@@ -123,12 +121,11 @@ class Entry implements AuditableEntryInterface
 
     /**
      * Turns on/off auditing on permissions denials.
-     * 
+     *
      * Do never call this method directly. Use the respective methods on the
      * AclInterface instead.
-     * 
+     *
      * @param Boolean $boolean
-     * @return void
      */
     public function setAuditFailure($boolean)
     {
@@ -137,12 +134,11 @@ class Entry implements AuditableEntryInterface
 
     /**
      * Turns on/off auditing on permission grants.
-     * 
+     *
      * Do never call this method directly. Use the respective methods on the
      * AclInterface instead.
-     * 
+     *
      * @param Boolean $boolean
-     * @return void
      */
     public function setAuditSuccess($boolean)
     {
@@ -154,9 +150,8 @@ class Entry implements AuditableEntryInterface
      *
      * Do never call this method directly. Use the respective methods on the
      * AclInterface instead.
-     * 
+     *
      * @param integer $mask
-     * @return void
      */
     public function setMask($mask)
     {
@@ -168,9 +163,8 @@ class Entry implements AuditableEntryInterface
      *
      * Do never call this method directly. Use the respective methods on the
      * AclInterface instead.
-     * 
+     *
      * @param string $strategy
-     * @return void
      */
     public function setStrategy($strategy)
     {
@@ -199,7 +193,6 @@ class Entry implements AuditableEntryInterface
      * Implementation of \Serializable
      *
      * @param string $serialized
-     * @return void
      */
     public function unserialize($serialized)
     {

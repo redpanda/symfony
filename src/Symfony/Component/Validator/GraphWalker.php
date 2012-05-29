@@ -1,72 +1,114 @@
 <?php
 
-namespace Symfony\Component\Validator;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Validator;
 
 use Symfony\Component\Validator\ConstraintValidatorFactoryInterface;
 use Symfony\Component\Validator\Constraint;
-use Symfony\Component\Validator\Constraints\All;
-use Symfony\Component\Validator\Constraints\Valid;
 use Symfony\Component\Validator\Exception\UnexpectedTypeException;
 use Symfony\Component\Validator\Mapping\ClassMetadataFactoryInterface;
 use Symfony\Component\Validator\Mapping\ClassMetadata;
 use Symfony\Component\Validator\Mapping\MemberMetadata;
 
+/**
+ * Responsible for walking over and initializing validation on different
+ * types of items.
+ *
+ * @author Fabien Potencier <fabien@symfony.com>
+ * @author Bernhard Schussek <bschussek@gmail.com>
+ */
 class GraphWalker
 {
-    protected $context;
-    protected $validatorFactory;
-    protected $metadataFactory;
+    private $globalContext;
+    private $validatorFactory;
+    private $metadataFactory;
+    private $validatorInitializers = array();
+    private $validatedObjects = array();
 
-    public function __construct($root, ClassMetadataFactoryInterface $metadataFactory, ConstraintValidatorFactoryInterface $factory)
+    public function __construct($root, ClassMetadataFactoryInterface $metadataFactory, ConstraintValidatorFactoryInterface $factory, array $validatorInitializers = array())
     {
-        $this->context = new ValidationContext($root, $this, $metadataFactory);
+        $this->globalContext = new GlobalExecutionContext($root, $this, $metadataFactory);
         $this->validatorFactory = $factory;
         $this->metadataFactory = $metadataFactory;
+        $this->validatorInitializers = $validatorInitializers;
     }
 
+    /**
+     * @return ConstraintViolationList
+     */
     public function getViolations()
     {
-        return $this->context->getViolations();
+        return $this->globalContext->getViolations();
     }
 
-    public function walkClass(ClassMetadata $metadata, $object, $group, $propertyPath)
+    /**
+     * Initialize validation on the given object using the given metadata
+     * instance and validation group.
+     *
+     * @param ClassMetadata $metadata
+     * @param object        $object       The object to validate
+     * @param string        $group        The validator group to use for validation
+     * @param string        $propertyPath
+     */
+    public function walkObject(ClassMetadata $metadata, $object, $group, $propertyPath)
     {
-        $this->context->setCurrentClass($metadata->getClassName());
+        foreach ($this->validatorInitializers as $initializer) {
+            if (!$initializer instanceof ObjectInitializerInterface) {
+                throw new \LogicException('Validator initializers must implement ObjectInitializerInterface.');
+            }
+            $initializer->initialize($object);
+        }
 
-        if ($group === Constraint::DEFAULT_GROUP && $metadata->hasGroupSequence()) {
-            $groups = $metadata->getGroupSequence();
+        if ($group === Constraint::DEFAULT_GROUP && ($metadata->hasGroupSequence() || $metadata->isGroupSequenceProvider())) {
+            if ($metadata->hasGroupSequence()) {
+                $groups = $metadata->getGroupSequence();
+            } else {
+                $groups = $object->getGroupSequence();
+            }
+
             foreach ($groups as $group) {
-                $this->walkClassForGroup($metadata, $object, $group, $propertyPath, Constraint::DEFAULT_GROUP);
+                $this->walkObjectForGroup($metadata, $object, $group, $propertyPath, Constraint::DEFAULT_GROUP);
 
                 if (count($this->getViolations()) > 0) {
                     break;
                 }
             }
         } else {
-            $this->walkClassForGroup($metadata, $object, $group, $propertyPath);
+            $this->walkObjectForGroup($metadata, $object, $group, $propertyPath);
         }
     }
 
-    protected function walkClassForGroup(ClassMetadata $metadata, $object, $group, $propertyPath, $propagatedGroup = null)
+    protected function walkObjectForGroup(ClassMetadata $metadata, $object, $group, $propertyPath, $propagatedGroup = null)
     {
+        $hash = spl_object_hash($object);
+
+        // Exit, if the object is already validated for the current group
+        if (isset($this->validatedObjects[$hash][$group])) {
+                return;
+        }
+
+        // Remember validating this object before starting and possibly
+        // traversing the object graph
+        $this->validatedObjects[$hash][$group] = true;
+
+        $currentClass = $metadata->getClassName();
+
         foreach ($metadata->findConstraints($group) as $constraint) {
-            $this->walkConstraint($constraint, $object, $group, $propertyPath);
+            $this->walkConstraint($constraint, $object, $group, $propertyPath, $currentClass);
         }
 
         if (null !== $object) {
+            $pathPrefix = empty($propertyPath) ? '' : $propertyPath.'.';
             foreach ($metadata->getConstrainedProperties() as $property) {
-                $localPropertyPath = empty($propertyPath) ? $property : $propertyPath.'.'.$property;
-
-                $this->walkProperty($metadata, $property, $object, $group, $localPropertyPath, $propagatedGroup);
+                $this->walkProperty($metadata, $property, $object, $group, $pathPrefix.$property, $propagatedGroup);
             }
         }
     }
@@ -87,48 +129,56 @@ class GraphWalker
 
     protected function walkMember(MemberMetadata $metadata, $value, $group, $propertyPath, $propagatedGroup = null)
     {
-        $this->context->setCurrentProperty($metadata->getPropertyName());
+        $currentClass = $metadata->getClassName();
+        $currentProperty = $metadata->getPropertyName();
 
         foreach ($metadata->findConstraints($group) as $constraint) {
-            $this->walkConstraint($constraint, $value, $group, $propertyPath);
+            $this->walkConstraint($constraint, $value, $group, $propertyPath, $currentClass, $currentProperty);
         }
 
         if ($metadata->isCascaded()) {
-            $this->walkReference($value, $propagatedGroup ?: $group, $propertyPath);
+            $this->walkReference($value, $propagatedGroup ?: $group, $propertyPath, $metadata->isCollectionCascaded(), $metadata->isCollectionCascadedDeeply());
         }
     }
 
-    protected function walkReference($value, $group, $propertyPath)
+    public function walkReference($value, $group, $propertyPath, $traverse, $deep = false)
     {
         if (null !== $value) {
-            if (is_array($value)) {
-                foreach ($value as $key => $element) {
-                    $this->walkReference($element, $group, $propertyPath.'['.$key.']');
-                }
-            } else if (!is_object($value)) {
+            if (!is_object($value) && !is_array($value)) {
                 throw new UnexpectedTypeException($value, 'object or array');
-            } else {
+            }
+
+            if ($traverse && (is_array($value) || $value instanceof \Traversable)) {
+                foreach ($value as $key => $element) {
+                    // Ignore any scalar values in the collection
+                    if (is_object($element) || is_array($element)) {
+                        // Only repeat the traversal if $deep is set
+                        $this->walkReference($element, $group, $propertyPath.'['.$key.']', $deep, $deep);
+                    }
+                }
+            }
+
+            if (is_object($value)) {
                 $metadata = $this->metadataFactory->getClassMetadata(get_class($value));
-                $this->walkClass($metadata, $value, $group, $propertyPath);
+                $this->walkObject($metadata, $value, $group, $propertyPath);
             }
         }
     }
 
-    public function walkConstraint(Constraint $constraint, $value, $group, $propertyPath)
+    public function walkConstraint(Constraint $constraint, $value, $group, $propertyPath, $currentClass = null, $currentProperty = null)
     {
         $validator = $this->validatorFactory->getInstance($constraint);
 
-        $this->context->setPropertyPath($propertyPath);
-        $this->context->setGroup($group);
+        $localContext = new ExecutionContext(
+            $this->globalContext,
+            $value,
+            $propertyPath,
+            $group,
+            $currentClass,
+            $currentProperty
+        );
 
-        $validator->initialize($this->context);
-
-        if (!$validator->isValid($value, $constraint)) {
-            $this->context->addViolation(
-                $validator->getMessageTemplate(),
-                $validator->getMessageParameters(),
-                $value
-            );
-        }
+        $validator->initialize($localContext);
+        $validator->validate($value, $constraint);
     }
 }

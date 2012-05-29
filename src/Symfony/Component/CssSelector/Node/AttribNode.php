@@ -1,18 +1,18 @@
 <?php
 
-namespace Symfony\Component\CssSelector\Node;
-
-use Symfony\Component\CssSelector\XPathExpr;
-use Symfony\Component\CssSelector\SyntaxError;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\CssSelector\Node;
+
+use Symfony\Component\CssSelector\XPathExpr;
+use Symfony\Component\CssSelector\Exception\ParseException;
 
 /**
  * AttribNode represents a "selector[namespace|attrib operator value]" node.
@@ -20,7 +20,7 @@ use Symfony\Component\CssSelector\SyntaxError;
  * This component is a port of the Python lxml library,
  * which is copyright Infrae and distributed under the BSD license.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class AttribNode implements NodeInterface
 {
@@ -30,6 +30,15 @@ class AttribNode implements NodeInterface
     protected $operator;
     protected $value;
 
+    /**
+     * Constructor.
+     *
+     * @param NodeInterface $selector  The XPath selector
+     * @param string        $namespace The namespace
+     * @param string        $attrib    The attribute
+     * @param string        $operator  The operator
+     * @param string        $value     The value
+     */
     public function __construct($selector, $namespace, $attrib, $operator, $value)
     {
         $this->selector = $selector;
@@ -39,17 +48,20 @@ class AttribNode implements NodeInterface
         $this->value = $value;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public function __toString()
     {
         if ($this->operator == 'exists') {
             return sprintf('%s[%s[%s]]', __CLASS__, $this->selector, $this->formatAttrib());
-        } else {
-            return sprintf('%s[%s[%s %s %s]]', __CLASS__, $this->selector, $this->formatAttrib(), $this->operator, $this->value);
         }
+
+        return sprintf('%s[%s[%s %s %s]]', __CLASS__, $this->selector, $this->formatAttrib(), $this->operator, $this->value);
     }
 
     /**
-     * @throws SyntaxError When unknown operator is found
+     * {@inheritDoc}
      */
     public function toXpath()
     {
@@ -82,12 +94,17 @@ class AttribNode implements NodeInterface
             // FIXME: case sensitive?
             $path->addCondition(sprintf('contains(%s, %s)', $attrib, XPathExpr::xpathLiteral($value)));
         } else {
-            throw new SyntaxError(sprintf('Unknown operator: %s', $this->operator));
+            throw new ParseException(sprintf('Unknown operator: %s', $this->operator));
         }
 
         return $path;
     }
 
+    /**
+     * Returns the XPath Attribute
+     *
+     * @return string The XPath attribute
+     */
     protected function xpathAttrib()
     {
         // FIXME: if attrib is *?
@@ -98,6 +115,11 @@ class AttribNode implements NodeInterface
         return sprintf('@%s:%s', $this->namespace, $this->attrib);
     }
 
+    /**
+     * Returns a formatted attribute
+     *
+     * @return string The formatted attribute
+     */
     protected function formatAttrib()
     {
         if ($this->namespace == '*') {

@@ -1,23 +1,24 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Routing\Loader;
 
 use Symfony\Component\Routing\RouteCollection;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Config\Resource\DirectoryResource;
 
 /**
  * AnnotationDirectoryLoader loads routing information from annotations set
  * on PHP classes and methods.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class AnnotationDirectoryLoader extends AnnotationFileLoader
 {
@@ -33,18 +34,26 @@ class AnnotationDirectoryLoader extends AnnotationFileLoader
      */
     public function load($path, $type = null)
     {
-        $dir = $this->getAbsolutePath($path);
-        if (!file_exists($dir)) {
-            throw new \InvalidArgumentException(sprintf('The directory "%s" does not exist (in: %s).', $dir, implode(', ', $this->paths)));
-        }
+        $dir = $this->locator->locate($path);
 
         $collection = new RouteCollection();
-        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir), \RecursiveIteratorIterator::LEAVES_ONLY) as $file) {
+        $collection->addResource(new DirectoryResource($dir, '/\.php$/'));
+        $files = iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir), \RecursiveIteratorIterator::LEAVES_ONLY));
+        usort($files, function (\SplFileInfo $a, \SplFileInfo $b) {
+            return (string) $a > (string) $b ? 1 : -1;
+        });
+
+        foreach ($files as $file) {
             if (!$file->isFile() || '.php' !== substr($file->getFilename(), -4)) {
                 continue;
             }
 
             if ($class = $this->findClass($file)) {
+                $refl = new \ReflectionClass($class);
+                if ($refl->isAbstract()) {
+                    continue;
+                }
+
                 $collection->addCollection($this->loader->load($class, $type));
             }
         }
@@ -58,10 +67,16 @@ class AnnotationDirectoryLoader extends AnnotationFileLoader
      * @param mixed  $resource A resource
      * @param string $type     The resource type
      *
-     * @return boolean True if this class supports the given resource, false otherwise
+     * @return Boolean True if this class supports the given resource, false otherwise
      */
     public function supports($resource, $type = null)
     {
-        return is_string($resource) && is_dir($this->getAbsolutePath($resource)) && (!$type || 'annotation' === $type);
+        try {
+            $path = $this->locator->locate($resource);
+        } catch (\Exception $e) {
+            return false;
+        }
+
+        return is_string($resource) && is_dir($path) && (!$type || 'annotation' === $type);
     }
 }

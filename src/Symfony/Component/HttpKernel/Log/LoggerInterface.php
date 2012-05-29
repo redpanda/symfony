@@ -1,38 +1,62 @@
 <?php
 
-namespace Symfony\Component\HttpKernel\Log;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\HttpKernel\Log;
 
 /**
  * LoggerInterface.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 interface LoggerInterface
 {
-    function log($message, $priority);
+    /**
+     * @api
+     */
+    function emerg($message, array $context = array());
 
-    function emerg($message);
+    /**
+     * @api
+     */
+    function alert($message, array $context = array());
 
-    function alert($message);
+    /**
+     * @api
+     */
+    function crit($message, array $context = array());
 
-    function crit($message);
+    /**
+     * @api
+     */
+    function err($message, array $context = array());
 
-    function err($message);
+    /**
+     * @api
+     */
+    function warn($message, array $context = array());
 
-    function warn($message);
+    /**
+     * @api
+     */
+    function notice($message, array $context = array());
 
-    function notice($message);
+    /**
+     * @api
+     */
+    function info($message, array $context = array());
 
-    function info($message);
-
-    function debug($message);
+    /**
+     * @api
+     */
+    function debug($message, array $context = array());
 }

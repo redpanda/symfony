@@ -1,45 +1,50 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Translation;
 
 use Symfony\Component\Translation\Loader\LoaderInterface;
 
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
-
 /**
  * Translator.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class Translator implements TranslatorInterface
 {
     protected $catalogues;
     protected $locale;
-    protected $fallbackLocale;
-    protected $loaders;
-    protected $resources;
-    protected $selector;
+    private $fallbackLocales;
+    private $loaders;
+    private $resources;
+    private $selector;
 
     /**
      * Constructor.
      *
      * @param string          $locale   The locale
      * @param MessageSelector $selector The message selector for pluralization
+     *
+     * @api
      */
-    public function __construct($locale = null, MessageSelector $selector)
+    public function __construct($locale, MessageSelector $selector = null)
     {
         $this->locale = $locale;
-        $this->selector = $selector;
+        $this->selector = null === $selector ? new MessageSelector() : $selector;
         $this->loaders = array();
         $this->resources = array();
         $this->catalogues = array();
+        $this->fallbackLocales = array();
     }
 
     /**
@@ -47,6 +52,8 @@ class Translator implements TranslatorInterface
      *
      * @param string          $format The name of the loader (@see addResource())
      * @param LoaderInterface $loader A LoaderInterface instance
+     *
+     * @api
      */
     public function addLoader($format, LoaderInterface $loader)
     {
@@ -60,18 +67,18 @@ class Translator implements TranslatorInterface
      * @param mixed  $resource The resource name
      * @param string $locale   The locale
      * @param string $domain   The domain
+     *
+     * @api
      */
     public function addResource($format, $resource, $locale, $domain = 'messages')
     {
-        if (!isset($this->resources[$locale])) {
-            $this->resources[$locale] = array();
-        }
-
         $this->resources[$locale][] = array($format, $resource, $domain);
     }
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function setLocale($locale)
     {
@@ -80,6 +87,8 @@ class Translator implements TranslatorInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function getLocale()
     {
@@ -87,20 +96,24 @@ class Translator implements TranslatorInterface
     }
 
     /**
-     * Sets the fallback locale.
+     * Sets the fallback locale(s).
      *
-     * @param string $locale The fallback locale
+     * @param string|array $locales The fallback locale(s)
+     *
+     * @api
      */
-    public function setFallbackLocale($locale)
+    public function setFallbackLocale($locales)
     {
-        // needed as the fallback locale is used to fill-in non-yet translated messages
+        // needed as the fallback locales are linked to the already loaded catalogues
         $this->catalogues = array();
 
-        $this->fallbackLocale = $locale;
+        $this->fallbackLocales = is_array($locales) ? $locales : array($locales);
     }
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function trans($id, array $parameters = array(), $domain = 'messages', $locale = null)
     {
@@ -112,11 +125,13 @@ class Translator implements TranslatorInterface
             $this->loadCatalogue($locale);
         }
 
-        return strtr($this->catalogues[$locale]->get($id, $domain), $parameters);
+        return strtr($this->catalogues[$locale]->get((string) $id, $domain), $parameters);
     }
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function transChoice($id, $number, array $parameters = array(), $domain = 'messages', $locale = null)
     {
@@ -128,42 +143,70 @@ class Translator implements TranslatorInterface
             $this->loadCatalogue($locale);
         }
 
-        return strtr($this->selector->choose($this->catalogues[$locale]->get($id, $domain), (int) $number, $locale), $parameters);
+        $id = (string) $id;
+
+        $catalogue = $this->catalogues[$locale];
+        while (!$catalogue->defines($id, $domain)) {
+            if ($cat = $catalogue->getFallbackCatalogue()) {
+                $catalogue = $cat;
+                $locale = $catalogue->getLocale();
+            } else {
+                break;
+            }
+        }
+
+        return strtr($this->selector->choose($catalogue->get($id, $domain), (int) $number, $locale), $parameters);
     }
 
     protected function loadCatalogue($locale)
     {
-        $this->catalogues[$locale] = new MessageCatalogue($locale);
-        if (!isset($this->resources[$locale])) {
-            return;
-        }
-
-        foreach ($this->resources[$locale] as $resource) {
-            if (!isset($this->loaders[$resource[0]])) {
-                throw new \RuntimeException(sprintf('The "%s" translation loader is not registered.', $resource[0]));
-            }
-            $this->catalogues[$locale]->addCatalogue($this->loaders[$resource[0]]->load($resource[1], $locale, $resource[2]));
-        }
-
-        $this->optimizeCatalogue($locale);
+        $this->doLoadCatalogue($locale);
+        $this->loadFallbackCatalogues($locale);
     }
 
-    protected function optimizeCatalogue($locale)
+    private function doLoadCatalogue($locale)
     {
-        if (strlen($locale) > 3) {
-            $fallback = substr($locale, 0, -strlen(strrchr($locale, '_')));
-        } else {
-            $fallback = $this->fallbackLocale;
+        $this->catalogues[$locale] = new MessageCatalogue($locale);
+
+        if (isset($this->resources[$locale])) {
+            foreach ($this->resources[$locale] as $resource) {
+                if (!isset($this->loaders[$resource[0]])) {
+                    throw new \RuntimeException(sprintf('The "%s" translation loader is not registered.', $resource[0]));
+                }
+                $this->catalogues[$locale]->addCatalogue($this->loaders[$resource[0]]->load($resource[1], $locale, $resource[2]));
+            }
+        }
+    }
+
+    private function loadFallbackCatalogues($locale)
+    {
+        $current = $this->catalogues[$locale];
+
+        foreach ($this->computeFallbackLocales($locale) as $fallback) {
+            if (!isset($this->catalogues[$fallback])) {
+                $this->doLoadCatalogue($fallback);
+            }
+
+            $current->addFallbackCatalogue($this->catalogues[$fallback]);
+            $current = $this->catalogues[$fallback];
+        }
+    }
+
+    protected function computeFallbackLocales($locale)
+    {
+        $locales = array();
+        foreach ($this->fallbackLocales as $fallback) {
+            if ($fallback === $locale) {
+                continue;
+            }
+
+            $locales[] = $fallback;
         }
 
-        if (!$fallback) {
-            return;
+        if (strrchr($locale, '_') !== false) {
+            array_unshift($locales, substr($locale, 0, -strlen(strrchr($locale, '_'))));
         }
 
-        if (!isset($this->catalogues[$fallback])) {
-            $this->loadCatalogue($fallback);
-        }
-
-        $this->catalogues[$locale]->addFallbackCatalogue($this->catalogues[$fallback]);
+        return array_unique($locales);
     }
 }

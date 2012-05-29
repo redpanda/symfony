@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Security\Acl\Model;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Security\Acl\Model;
 
 /**
  * Provides support for creating and storing ACL instances.
@@ -24,7 +24,7 @@ interface MutableAclProviderInterface extends AclProviderInterface
      * @throws AclAlreadyExistsException when there already is an ACL for the given
      *                                   object identity
      * @param ObjectIdentityInterface $oid
-     * @return AclInterface
+     * @return MutableAclInterface
      */
     function createAcl(ObjectIdentityInterface $oid);
 
@@ -35,7 +35,6 @@ interface MutableAclProviderInterface extends AclProviderInterface
      * want child ACLs to be deleted, you will have to set their parent ACL to null.
      *
      * @param ObjectIdentityInterface $oid
-     * @return void
      */
     function deleteAcl(ObjectIdentityInterface $oid);
 
@@ -46,7 +45,6 @@ interface MutableAclProviderInterface extends AclProviderInterface
      * Changes to parent ACLs are not persisted.
      *
      * @param MutableAclInterface $acl
-     * @return void
      */
     function updateAcl(MutableAclInterface $acl);
 }

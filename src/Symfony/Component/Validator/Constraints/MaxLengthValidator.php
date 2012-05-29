@@ -1,45 +1,60 @@
 <?php
 
-namespace Symfony\Component\Validator\Constraints;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Validator\Constraints;
 
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
 use Symfony\Component\Validator\Exception\UnexpectedTypeException;
 
+/**
+ * @author Bernhard Schussek <bschussek@gmail.com>
+ *
+ * @api
+ */
 class MaxLengthValidator extends ConstraintValidator
 {
-    public function isValid($value, Constraint $constraint)
+    /**
+     * Checks if the passed value is valid.
+     *
+     * @param mixed      $value      The value that should be validated
+     * @param Constraint $constraint The constraint for the validation
+     *
+     * @api
+     */
+    public function validate($value, Constraint $constraint)
     {
         if (null === $value || '' === $value) {
-            return true;
+            return;
         }
 
-        if (!is_scalar($value) && !(is_object($value) && method_exists($value, '__toString()'))) {
+        if (!is_scalar($value) && !(is_object($value) && method_exists($value, '__toString'))) {
             throw new UnexpectedTypeException($value, 'string');
         }
 
-        $value = (string)$value;
+        $value = (string) $value;
 
-        $length = function_exists('mb_strlen') ? mb_strlen($value, $constraint->charset) : strlen($value);
-
-        if ($length > $constraint->limit) {
-            $this->setMessage($constraint->message, array(
-                '{{ value }}' => $value,
-                '{{ limit }}' => $constraint->limit,
-            ));
-
-            return false;
+        if (function_exists('grapheme_strlen') && 'UTF-8' === $constraint->charset) {
+            $length = grapheme_strlen($value);
+        } elseif (function_exists('mb_strlen')) {
+            $length = mb_strlen($value, $constraint->charset);
+        } else {
+            $length = strlen($value);
         }
 
-        return true;
+        if ($length > $constraint->limit) {
+            $this->context->addViolation($constraint->message, array(
+                '{{ value }}' => $value,
+                '{{ limit }}' => $constraint->limit,
+            ), null, (int) $constraint->limit);
+        }
     }
 }

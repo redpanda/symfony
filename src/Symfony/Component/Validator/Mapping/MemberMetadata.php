@@ -1,19 +1,19 @@
 <?php
 
-namespace Symfony\Component\Validator\Mapping;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Validator\Mapping;
 
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\Constraints\Valid;
-use Symfony\Component\Validator\Exception\ValidatorException;
+use Symfony\Component\Validator\Exception\ConstraintDefinitionException;
 
 abstract class MemberMetadata extends ElementMetadata
 {
@@ -21,6 +21,8 @@ abstract class MemberMetadata extends ElementMetadata
     public $name;
     public $property;
     public $cascaded = false;
+    public $collectionCascaded = false;
+    public $collectionCascadedDeeply = false;
     private $reflMember;
 
     /**
@@ -42,8 +44,18 @@ abstract class MemberMetadata extends ElementMetadata
      */
     public function addConstraint(Constraint $constraint)
     {
+        if (!in_array(Constraint::PROPERTY_CONSTRAINT, (array) $constraint->getTargets())) {
+            throw new ConstraintDefinitionException(sprintf(
+                'The constraint %s cannot be put on properties or getters',
+                get_class($constraint)
+            ));
+        }
+
         if ($constraint instanceof Valid) {
             $this->cascaded = true;
+            /* @var Valid $constraint */
+            $this->collectionCascaded = $constraint->traverse;
+            $this->collectionCascadedDeeply = $constraint->deep;
         } else {
             parent::addConstraint($constraint);
         }
@@ -99,7 +111,7 @@ abstract class MemberMetadata extends ElementMetadata
     /**
      * Returns whether this member is public
      *
-     * @return boolean
+     * @return Boolean
      */
     public function isPublic()
     {
@@ -109,7 +121,7 @@ abstract class MemberMetadata extends ElementMetadata
     /**
      * Returns whether this member is protected
      *
-     * @return boolean
+     * @return Boolean
      */
     public function isProtected()
     {
@@ -119,7 +131,7 @@ abstract class MemberMetadata extends ElementMetadata
     /**
      * Returns whether this member is private
      *
-     * @return boolean
+     * @return Boolean
      */
     public function isPrivate()
     {
@@ -129,11 +141,33 @@ abstract class MemberMetadata extends ElementMetadata
     /**
      * Returns whether objects stored in this member should be validated
      *
-     * @return boolean
+     * @return Boolean
      */
     public function isCascaded()
     {
         return $this->cascaded;
+    }
+
+    /**
+     * Returns whether arrays or traversable objects stored in this member
+     * should be traversed and validated in each entry
+     *
+     * @return Boolean
+     */
+    public function isCollectionCascaded()
+    {
+        return $this->collectionCascaded;
+    }
+
+    /**
+     * Returns whether arrays or traversable objects stored in this member
+     * should be traversed recursively for inner arrays/traversable objects
+     *
+     * @return Boolean
+     */
+    public function isCollectionCascadedDeeply()
+    {
+        return $this->collectionCascadedDeeply;
     }
 
     /**

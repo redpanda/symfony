@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Finder;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Finder;
 
 /**
  * Glob matches globbing patterns against text.
@@ -28,9 +28,9 @@ namespace Symfony\Component\Finder;
  *
  * Based on the Perl Text::Glob module.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com> PHP port
+ * @author Fabien Potencier <fabien@symfony.com> PHP port
  * @author     Richard Clamp <richardc@unixbeard.net> Perl version
- * @copyright  2004-2005 Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @copyright  2004-2005 Fabien Potencier <fabien@symfony.com>
  * @copyright  2002 Richard Clamp <richardc@unixbeard.net>
  */
 class Glob
@@ -38,7 +38,9 @@ class Glob
     /**
      * Returns a regexp which is the equivalent of the glob pattern.
      *
-     * @param  string $glob  The glob pattern
+     * @param string  $glob                The glob pattern
+     * @param Boolean $strictLeadingDot
+     * @param Boolean $strictWildcardSlash
      *
      * @return string regex The regexp
      */

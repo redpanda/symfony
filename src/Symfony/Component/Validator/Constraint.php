@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Validator;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Validator;
 
 use Symfony\Component\Validator\Exception\InvalidOptionsException;
 use Symfony\Component\Validator\Exception\MissingOptionsException;
@@ -24,12 +24,33 @@ use Symfony\Component\Validator\Exception\ConstraintDefinitionException;
  *
  * Constraint instances are immutable and serializable.
  *
- * @author Bernhard Schussek <bernhard.schussek@symfony-project.com>
+ * @author Bernhard Schussek <bschussek@gmail.com>
+ *
+ * @api
  */
 abstract class Constraint
 {
+    /**
+     * The name of the group given to all constraints with no explicit group
+     * @var string
+     */
     const DEFAULT_GROUP = 'Default';
 
+    /**
+     * Marks a constraint that can be put onto classes
+     * @var string
+     */
+    const CLASS_CONSTRAINT = 'class';
+
+    /**
+     * Marks a constraint that can be put onto properties
+     * @var string
+     */
+    const PROPERTY_CONSTRAINT = 'property';
+
+    /**
+     * @var array
+     */
     public $groups = array(self::DEFAULT_GROUP);
 
     /**
@@ -39,12 +60,12 @@ abstract class Constraint
      * existing properties in this class. The values should be the value for these
      * properties.
      *
-     * Alternatively you can override the method defaultOption() to return the
+     * Alternatively you can override the method getDefaultOption() to return the
      * name of an existing property. If no associative array is passed, this
      * property is set instead.
      *
      * You can force that certain options are set by overriding
-     * requiredOptions() to return the names of these options. If any
+     * getRequiredOptions() to return the names of these options. If any
      * option is not set here, an exception is thrown.
      *
      * @param mixed $options The options (as associative array)
@@ -54,15 +75,17 @@ abstract class Constraint
      * @throws InvalidOptionsException       When you pass the names of non-existing
      *                                       options
      * @throws MissingOptionsException       When you don't pass any of the options
-     *                                       returned by requiredOptions()
+     *                                       returned by getRequiredOptions()
      * @throws ConstraintDefinitionException When you don't pass an associative
-     *                                       array, but defaultOption() returns
+     *                                       array, but getDefaultOption() returns
      *                                       NULL
+     *
+     * @api
      */
     public function __construct($options = null)
     {
         $invalidOptions = array();
-        $missingOptions = array_flip((array)$this->requiredOptions());
+        $missingOptions = array_flip((array) $this->getRequiredOptions());
 
         if (is_array($options) && count($options) == 1 && isset($options['value'])) {
             $options = $options['value'];
@@ -77,8 +100,8 @@ abstract class Constraint
                     $invalidOptions[] = $option;
                 }
             }
-        } else if (null !== $options && ! (is_array($options) && count($options) === 0)) {
-            $option = $this->defaultOption();
+        } elseif (null !== $options && ! (is_array($options) && count($options) === 0)) {
+            $option = $this->getDefaultOption();
 
             if (null === $option) {
                 throw new ConstraintDefinitionException(
@@ -108,7 +131,7 @@ abstract class Constraint
             );
         }
 
-        $this->groups = (array)$this->groups;
+        $this->groups = (array) $this->groups;
     }
 
     /**
@@ -123,6 +146,8 @@ abstract class Constraint
      * Adds the given group if this constraint is in the Default group
      *
      * @param string $group
+     *
+     * @api
      */
     public function addImplicitGroupName($group)
     {
@@ -138,8 +163,10 @@ abstract class Constraint
      *
      * @return string
      * @see __construct()
+     *
+     * @api
      */
-    public function defaultOption()
+    public function getDefaultOption()
     {
         return null;
     }
@@ -151,8 +178,10 @@ abstract class Constraint
      *
      * @return array
      * @see __construct()
+     *
+     * @api
      */
-    public function requiredOptions()
+    public function getRequiredOptions()
     {
         return array();
     }
@@ -165,9 +194,27 @@ abstract class Constraint
      * behaviour.
      *
      * @return string
+     *
+     * @api
      */
     public function validatedBy()
     {
-        return get_class($this) . 'Validator';
+        return get_class($this).'Validator';
+    }
+
+    /**
+     * Returns whether the constraint can be put onto classes, properties or
+     * both
+     *
+     * This method should return one or more of the constants
+     * Constraint::CLASS_CONSTRAINT and Constraint::PROPERTY_CONSTRAINT.
+     *
+     * @return string|array  One or more constant values
+     *
+     * @api
+     */
+    public function getTargets()
+    {
+        return self::PROPERTY_CONSTRAINT;
     }
 }

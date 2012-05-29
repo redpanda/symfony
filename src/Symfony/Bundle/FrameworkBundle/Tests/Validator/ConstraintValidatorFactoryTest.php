@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Bundle\FrameworkBundle\Tests\Validator;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Bundle\FrameworkBundle\Tests\Validator;
 
 use Symfony\Bundle\FrameworkBundle\Validator\ConstraintValidatorFactory;
 use Symfony\Component\DependencyInjection\Container;
@@ -49,13 +49,6 @@ class ConstraintValidatorFactoryTest extends \PHPUnit_Framework_TestCase
         $container = $this->getMock('Symfony\\Component\\DependencyInjection\\ContainerBuilder');
         $container
             ->expects($this->once())
-            ->method('findTaggedServiceIds')
-            ->with('validator.constraint_validator')
-            ->will($this->returnValue(array(
-                $service => array(array('alias' => $alias)),
-            )));
-        $container
-            ->expects($this->once())
             ->method('get')
             ->with($service)
             ->will($this->returnValue($validator));
@@ -66,8 +59,7 @@ class ConstraintValidatorFactoryTest extends \PHPUnit_Framework_TestCase
             ->method('validatedBy')
             ->will($this->returnValue($alias));
 
-        $factory = new ConstraintValidatorFactory($container);
-        $factory->loadTaggedServiceIds($container);
+        $factory = new ConstraintValidatorFactory($container, array('validator_constraint_alias' => 'validator_constraint_service'));
         $this->assertSame($validator, $factory->getInstance($constraint));
     }
 }

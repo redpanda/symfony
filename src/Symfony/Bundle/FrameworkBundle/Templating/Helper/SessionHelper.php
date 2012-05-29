@@ -1,23 +1,23 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Bundle\FrameworkBundle\Templating\Helper;
 
 use Symfony\Component\Templating\Helper\Helper;
 use Symfony\Component\HttpFoundation\Request;
 
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
-
 /**
  * SessionHelper provides read-only access to the session attributes.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class SessionHelper extends Helper
 {
@@ -46,24 +46,19 @@ class SessionHelper extends Helper
         return $this->session->get($name, $default);
     }
 
-    /**
-     * Returns the locale
-     *
-     * @return string
-     */
-    public function getLocale()
+    public function getFlash($name, array $default = array())
     {
-        return $this->session->getLocale();
+        return $this->session->getFlashBag()->get($name, $default);
     }
 
-    public function getFlash($name, $default = null)
+    public function getFlashes()
     {
-        return $this->session->getFlash($name, $default);
+        return $this->session->getFlashBag()->all();
     }
 
     public function hasFlash($name)
     {
-        return $this->session->hasFlash($name);
+        return $this->session->getFlashBag()->has($name);
     }
 
     /**

@@ -1,20 +1,22 @@
 <?php
 
-namespace Symfony\Component\DomCrawler\Field;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\DomCrawler\Field;
+
 /**
  * FileFormField represents a file form field (an HTML file input tag).
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class FileFormField extends FormField
 {
@@ -39,6 +41,8 @@ class FileFormField extends FormField
      * Sets the value of the field.
      *
      * @param string $value The value of the field
+     *
+     * @api
      */
     public function upload($value)
     {
@@ -55,13 +59,21 @@ class FileFormField extends FormField
         if (null !== $value && is_readable($value)) {
             $error = UPLOAD_ERR_OK;
             $size = filesize($value);
+            $name = basename($value);
+
+            // copy to a tmp location
+            $tmp = tempnam(sys_get_temp_dir(), 'upload');
+            unlink($tmp);
+            copy($value, $tmp);
+            $value = $tmp;
         } else {
             $error = UPLOAD_ERR_NO_FILE;
             $size = 0;
+            $name = '';
             $value = '';
         }
 
-        $this->value = array('name' => basename($value), 'type' => '', 'tmp_name' => $value, 'error' => $error, 'size' => $size);
+        $this->value = array('name' => $name, 'type' => '', 'tmp_name' => $value, 'error' => $error, 'size' => $size);
     }
 
     /**

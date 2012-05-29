@@ -1,41 +1,43 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\DependencyInjection\Loader;
 
+use Symfony\Component\DependencyInjection\DefinitionDecorator;
+use Symfony\Component\DependencyInjection\Alias;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\DependencyInjection\InterfaceInjector;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\DependencyInjection\Resource\FileResource;
+use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
+use Symfony\Component\Config\Resource\FileResource;
 use Symfony\Component\Yaml\Yaml;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
 
 /**
  * YamlFileLoader loads YAML files service definitions.
  *
  * The YAML format does not support anonymous services (cf. the XML loader).
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class YamlFileLoader extends FileLoader
 {
     /**
      * Loads a Yaml file.
      *
-     * @param mixed $resource The resource
+     * @param mixed  $file The resource
+     * @param string $type The resource type
      */
-    public function load($file)
+    public function load($file, $type = null)
     {
-        $path = $this->findFile($file);
+        $path = $this->locator->locate($file);
 
         $content = $this->loadFile($path);
 
@@ -59,9 +61,6 @@ class YamlFileLoader extends FileLoader
         // extensions
         $this->loadFromExtensions($content);
 
-        // interface injectors
-        $this->parseInterfaceInjectors($content, $file);
-
         // services
         $this->parseDefinitions($content, $file);
     }
@@ -69,50 +68,41 @@ class YamlFileLoader extends FileLoader
     /**
      * Returns true if this class supports the given resource.
      *
-     * @param  mixed $resource A resource
+     * @param mixed  $resource A resource
+     * @param string $type     The resource type
      *
      * @return Boolean true if this class supports the given resource, false otherwise
      */
-    public function supports($resource)
+    public function supports($resource, $type = null)
     {
         return is_string($resource) && 'yml' === pathinfo($resource, PATHINFO_EXTENSION);
     }
 
-    protected function parseImports($content, $file)
+    /**
+     * Parses all imports
+     *
+     * @param array  $content
+     * @param string $file
+     */
+    private function parseImports($content, $file)
     {
         if (!isset($content['imports'])) {
             return;
         }
 
         foreach ($content['imports'] as $import) {
-            $this->currentDir = dirname($file);
-            $this->import($import['resource'], isset($import['ignore_errors']) ? (Boolean) $import['ignore_errors'] : false);
+            $this->setCurrentDir(dirname($file));
+            $this->import($import['resource'], null, isset($import['ignore_errors']) ? (Boolean) $import['ignore_errors'] : false, $file);
         }
     }
 
-    protected function parseInterfaceInjectors($content, $file)
-    {
-        if (!isset($content['interfaces'])) {
-            return;
-        }
-
-        foreach ($content['interfaces'] as $class => $interface) {
-            $this->parseInterfaceInjector($class, $interface, $file);
-        }
-    }
-
-    protected function parseInterfaceInjector($class, $interface, $file)
-    {
-        $injector = new InterfaceInjector($class);
-        if (isset($interface['calls'])) {
-            foreach ($interface['calls'] as $call) {
-                $injector->addMethodCall($call[0], $this->resolveServices($call[1]));
-            }
-        }
-        $this->container->addInterfaceInjector($injector);
-    }
-
-    protected function parseDefinitions($content, $file)
+    /**
+     * Parses definitions
+     *
+     * @param array  $content
+     * @param string $file
+     */
+    private function parseDefinitions($content, $file)
     {
         if (!isset($content['services'])) {
             return;
@@ -123,26 +113,54 @@ class YamlFileLoader extends FileLoader
         }
     }
 
-    protected function parseDefinition($id, $service, $file)
+    /**
+     * Parses a definition.
+     *
+     * @param string $id
+     * @param array  $service
+     * @param string $file
+     */
+    private function parseDefinition($id, $service, $file)
     {
         if (is_string($service) && 0 === strpos($service, '@')) {
             $this->container->setAlias($id, substr($service, 1));
 
             return;
+        } elseif (isset($service['alias'])) {
+            $public = !array_key_exists('public', $service) || (Boolean) $service['public'];
+            $this->container->setAlias($id, new Alias($service['alias'], $public));
+
+            return;
         }
 
-        $definition = new Definition();
+        if (isset($service['parent'])) {
+            $definition = new DefinitionDecorator($service['parent']);
+        } else {
+            $definition = new Definition();
+        }
 
         if (isset($service['class'])) {
             $definition->setClass($service['class']);
         }
 
-        if (isset($service['shared'])) {
-            $definition->setShared($service['shared']);
+        if (isset($service['scope'])) {
+            $definition->setScope($service['scope']);
+        }
+
+        if (isset($service['synthetic'])) {
+            $definition->setSynthetic($service['synthetic']);
         }
 
         if (isset($service['public'])) {
             $definition->setPublic($service['public']);
+        }
+
+        if (isset($service['abstract'])) {
+            $definition->setAbstract($service['abstract']);
+        }
+
+        if (isset($service['factory_class'])) {
+            $definition->setFactoryClass($service['factory_class']);
         }
 
         if (isset($service['factory_method'])) {
@@ -161,6 +179,10 @@ class YamlFileLoader extends FileLoader
             $definition->setArguments($this->resolveServices($service['arguments']));
         }
 
+        if (isset($service['properties'])) {
+            $definition->setProperties($this->resolveServices($service['properties']));
+        }
+
         if (isset($service['configurator'])) {
             if (is_string($service['configurator'])) {
                 $definition->setConfigurator($service['configurator']);
@@ -171,14 +193,29 @@ class YamlFileLoader extends FileLoader
 
         if (isset($service['calls'])) {
             foreach ($service['calls'] as $call) {
-                $definition->addMethodCall($call[0], $this->resolveServices($call[1]));
+                $args = isset($call[1]) ? $this->resolveServices($call[1]) : array();
+                $definition->addMethodCall($call[0], $args);
             }
         }
 
         if (isset($service['tags'])) {
+            if (!is_array($service['tags'])) {
+                throw new InvalidArgumentException(sprintf('Parameter "tags" must be an array for service "%s" in %s.', $id, $file));
+            }
+
             foreach ($service['tags'] as $tag) {
+                if (!isset($tag['name'])) {
+                    throw new InvalidArgumentException(sprintf('A "tags" entry is missing a "name" key for service "%s" in %s.', $id, $file));
+                }
+
                 $name = $tag['name'];
                 unset($tag['name']);
+
+                foreach ($tag as $attribute => $value) {
+                    if (!is_scalar($value)) {
+                        throw new InvalidArgumentException(sprintf('A "tags" attribute must be of a scalar-type for service "%s", tag "%s" in %s.', $id, $name, $file));
+                    }
+                }
 
                 $definition->addTag($name, $tag);
             }
@@ -187,72 +224,108 @@ class YamlFileLoader extends FileLoader
         $this->container->setDefinition($id, $definition);
     }
 
-    protected function loadFile($file)
+    /**
+     * Loads a YAML file.
+     *
+     * @param string $file
+     *
+     * @return array The file content
+     */
+    private function loadFile($file)
     {
-        return $this->validate(Yaml::load($file), $file);
+        return $this->validate(Yaml::parse($file), $file);
     }
 
     /**
-     * @throws \InvalidArgumentException When service file is not valid
+     * Validates a YAML file.
+     *
+     * @param mixed  $content
+     * @param string $file
+     *
+     * @return array
+     *
+     * @throws InvalidArgumentException When service file is not valid
      */
-    protected function validate($content, $file)
+    private function validate($content, $file)
     {
         if (null === $content) {
             return $content;
         }
 
         if (!is_array($content)) {
-            throw new \InvalidArgumentException(sprintf('The service file "%s" is not valid.', $file));
+            throw new InvalidArgumentException(sprintf('The service file "%s" is not valid.', $file));
         }
 
-        foreach (array_keys($content) as $key) {
-            if (in_array($key, array('imports', 'parameters', 'services', 'interfaces'))) {
+        foreach (array_keys($content) as $namespace) {
+            if (in_array($namespace, array('imports', 'parameters', 'services'))) {
                 continue;
             }
 
-            // can it be handled by an extension?
-            if (false !== strpos($key, '.')) {
-                list($namespace, $tag) = explode('.', $key);
-                if (!$this->container->hasExtension($namespace)) {
-                    throw new \InvalidArgumentException(sprintf('There is no extension able to load the configuration for "%s" (in %s).', $key, $file));
-                }
-
-                continue;
+            if (!$this->container->hasExtension($namespace)) {
+                $extensionNamespaces = array_filter(array_map(function ($ext) { return $ext->getAlias(); }, $this->container->getExtensions()));
+                throw new InvalidArgumentException(sprintf(
+                    'There is no extension able to load the configuration for "%s" (in %s). Looked for namespace "%s", found %s',
+                    $namespace,
+                    $file,
+                    $namespace,
+                    $extensionNamespaces ? sprintf('"%s"', implode('", "', $extensionNamespaces)) : 'none'
+                ));
             }
-
-            throw new \InvalidArgumentException(sprintf('The "%s" tag is not valid (in %s).', $key, $file));
         }
 
         return $content;
     }
 
-    protected function resolveServices($value)
+    /**
+     * Resolves services.
+     *
+     * @param string $value
+     *
+     * @return Reference
+     */
+    private function resolveServices($value)
     {
         if (is_array($value)) {
             $value = array_map(array($this, 'resolveServices'), $value);
-        } else if (is_string($value) && 0 === strpos($value, '@?')) {
-            $value = new Reference(substr($value, 2), ContainerInterface::IGNORE_ON_INVALID_REFERENCE);
-        } else if (is_string($value) && 0 === strpos($value, '@')) {
-            $value = new Reference(substr($value, 1));
+        } elseif (is_string($value) &&  0 === strpos($value, '@')) {
+            if (0 === strpos($value, '@?')) {
+                $value = substr($value, 2);
+                $invalidBehavior = ContainerInterface::IGNORE_ON_INVALID_REFERENCE;
+            } else {
+                $value = substr($value, 1);
+                $invalidBehavior = ContainerInterface::EXCEPTION_ON_INVALID_REFERENCE;
+            }
+
+            if ('=' === substr($value, -1)) {
+                $value = substr($value, 0, -1);
+                $strict = false;
+            } else {
+                $strict = true;
+            }
+
+            $value = new Reference($value, $invalidBehavior, $strict);
         }
 
         return $value;
     }
 
-    protected function loadFromExtensions($content)
+    /**
+     * Loads from Extensions
+     *
+     * @param array $content
+     */
+    private function loadFromExtensions($content)
     {
-        foreach ($content as $key => $values) {
-            if (in_array($key, array('imports', 'parameters', 'services', 'interfaces'))) {
+        foreach ($content as $namespace => $values) {
+            if (in_array($namespace, array('imports', 'parameters', 'services'))) {
                 continue;
             }
-
-            list($namespace, $tag) = explode('.', $key);
 
             if (!is_array($values)) {
                 $values = array();
             }
 
-            $this->container->loadFromExtension($namespace, $tag, $values);
+            $this->container->loadFromExtension($namespace, $values);
         }
     }
 }

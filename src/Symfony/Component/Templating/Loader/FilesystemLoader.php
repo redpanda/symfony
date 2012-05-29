@@ -1,23 +1,26 @@
 <?php
 
-namespace Symfony\Component\Templating\Loader;
-
-use Symfony\Component\Templating\Storage\Storage;
-use Symfony\Component\Templating\Storage\FileStorage;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\Templating\Loader;
+
+use Symfony\Component\Templating\Storage\Storage;
+use Symfony\Component\Templating\Storage\FileStorage;
+use Symfony\Component\Templating\TemplateReferenceInterface;
+
 /**
  * FilesystemLoader is a loader that read templates from the filesystem.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class FilesystemLoader extends Loader
 {
@@ -27,52 +30,48 @@ class FilesystemLoader extends Loader
      * Constructor.
      *
      * @param array $templatePathPatterns An array of path patterns to look for templates
+     *
+     * @api
      */
     public function __construct($templatePathPatterns)
     {
-        if (!is_array($templatePathPatterns)) {
-            $templatePathPatterns = array($templatePathPatterns);
-        }
-
-        $this->templatePathPatterns = $templatePathPatterns;
-
-        parent::__construct();
+        $this->templatePathPatterns = (array) $templatePathPatterns;
     }
 
     /**
      * Loads a template.
      *
-     * @param string $template The logical template name
-     * @param array  $options  An array of options
+     * @param TemplateReferenceInterface $template A template
      *
      * @return Storage|Boolean false if the template cannot be loaded, a Storage instance otherwise
+     *
+     * @api
      */
-    public function load($template, array $options = array())
+    public function load(TemplateReferenceInterface $template)
     {
-        if (self::isAbsolutePath($template) && file_exists($template)) {
-            return new FileStorage($template);
+        $file = $template->get('name');
+
+        if (self::isAbsolutePath($file) && is_file($file)) {
+            return new FileStorage($file);
         }
 
-        $options = $this->mergeDefaultOptions($options);
-        $options['name'] = $template;
-
         $replacements = array();
-        foreach ($options as $key => $value) {
+        foreach ($template->all() as $key => $value) {
             $replacements['%'.$key.'%'] = $value;
         }
 
         $logs = array();
         foreach ($this->templatePathPatterns as $templatePathPattern) {
-            if (is_file($file = strtr($templatePathPattern, $replacements))) {
+            if (is_file($file = strtr($templatePathPattern, $replacements)) && is_readable($file)) {
                 if (null !== $this->debugger) {
-                    $this->debugger->log(sprintf('Loaded template file "%s" (renderer: %s)', $file, $options['renderer']));
+                    $this->debugger->log(sprintf('Loaded template file "%s"', $file));
                 }
 
                 return new FileStorage($file);
             }
 
             if (null !== $this->debugger) {
-                $logs[] = sprintf('Failed loading template file "%s" (renderer: %s)', $file, $options['renderer']);
+                $logs[] = sprintf('Failed loading template file "%s"', $file);
             }
         }
 
@@ -88,18 +87,18 @@ class FilesystemLoader extends Loader
     /**
      * Returns true if the template is still fresh.
      *
-     * @param string    $template The template name
-     * @param array     $options  An array of options
-     * @param timestamp $time     The last modification time of the cached template
+     * @param TemplateReferenceInterface $template A template
+     * @param integer                    $time     The last modification time of the cached template (timestamp)
+     *
+     * @api
      */
-    public function isFresh($template, array $options = array(), $time)
+    public function isFresh(TemplateReferenceInterface $template, $time)
     {
-        if (false === $template = $this->load($template, $options))
-        {
+        if (false === $storage = $this->load($template)) {
             return false;
         }
 
-        return filemtime((string) $template) < $time;
+        return filemtime((string) $storage) < $time;
     }
 
     /**
@@ -111,11 +110,12 @@ class FilesystemLoader extends Loader
      */
     static protected function isAbsolutePath($file)
     {
-        if ($file[0] == '/' || $file[0] == '\\' 
-            || (strlen($file) > 3 && ctype_alpha($file[0]) 
-                && $file[1] == ':' 
+        if ($file[0] == '/' || $file[0] == '\\'
+            || (strlen($file) > 3 && ctype_alpha($file[0])
+                && $file[1] == ':'
                 && ($file[2] == '\\' || $file[2] == '/')
             )
+            || null !== parse_url($file, PHP_URL_SCHEME)
         ) {
             return true;
         }

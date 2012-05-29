@@ -1,28 +1,26 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Security\Acl\Voter;
 
-use Symfony\Component\Security\Acl\Domain\ObjectIdentity;
-use Symfony\Component\Security\Acl\Domain\RoleSecurityIdentity;
-use Symfony\Component\Security\Acl\Domain\UserSecurityIdentity;
+use Symfony\Component\HttpKernel\Log\LoggerInterface;
 use Symfony\Component\Security\Acl\Exception\NoAceFoundException;
 use Symfony\Component\Security\Acl\Exception\AclNotFoundException;
 use Symfony\Component\Security\Acl\Model\AclProviderInterface;
+use Symfony\Component\Security\Acl\Model\ObjectIdentityInterface;
 use Symfony\Component\Security\Acl\Permission\PermissionMapInterface;
 use Symfony\Component\Security\Acl\Model\SecurityIdentityRetrievalStrategyInterface;
 use Symfony\Component\Security\Acl\Model\ObjectIdentityRetrievalStrategyInterface;
-use Symfony\Component\Security\Authentication\Token\TokenInterface;
-use Symfony\Component\Security\Authorization\Voter\VoterInterface;
-use Symfony\Component\Security\Role\RoleHierarchyInterface;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 
 /**
  * This voter can be used as a base class for implementing your own permissions.
@@ -31,17 +29,21 @@ use Symfony\Component\Security\Role\RoleHierarchyInterface;
  */
 class AclVoter implements VoterInterface
 {
-    protected $aclProvider;
-    protected $permissionMap;
-    protected $objectIdentityRetrievalStrategy;
-    protected $securityIdentityRetrievalStrategy;
+    private $aclProvider;
+    private $permissionMap;
+    private $objectIdentityRetrievalStrategy;
+    private $securityIdentityRetrievalStrategy;
+    private $allowIfObjectIdentityUnavailable;
+    private $logger;
 
-    public function __construct(AclProviderInterface $aclProvider, ObjectIdentityRetrievalStrategyInterface $oidRetrievalStrategy, SecurityIdentityRetrievalStrategyInterface $sidRetrievalStrategy, PermissionMapInterface $permissionMap)
+    public function __construct(AclProviderInterface $aclProvider, ObjectIdentityRetrievalStrategyInterface $oidRetrievalStrategy, SecurityIdentityRetrievalStrategyInterface $sidRetrievalStrategy, PermissionMapInterface $permissionMap, LoggerInterface $logger = null, $allowIfObjectIdentityUnavailable = true)
     {
         $this->aclProvider = $aclProvider;
         $this->permissionMap = $permissionMap;
         $this->objectIdentityRetrievalStrategy = $oidRetrievalStrategy;
         $this->securityIdentityRetrievalStrategy = $sidRetrievalStrategy;
+        $this->logger = $logger;
+        $this->allowIfObjectIdentityUnavailable = $allowIfObjectIdentityUnavailable;
     }
 
     public function supportsAttribute($attribute)
@@ -51,50 +53,86 @@ class AclVoter implements VoterInterface
 
     public function vote(TokenInterface $token, $object, array $attributes)
     {
-        if (null === $object) {
-            return self::ACCESS_ABSTAIN;
-        } else if ($object instanceof FieldVote) {
-            $field = $object->getField();
-            $object = $object->getDomainObject();
-        } else {
-            $field = null;
-        }
-
-        if (null === $oid = $this->objectIdentityRetrievalStrategy->getObjectIdentity($object)) {
-            return self::ACCESS_ABSTAIN;
-        }
-        $sids = $this->securityIdentityRetrievalStrategy->getSecurityIdentities($token);
-
         foreach ($attributes as $attribute) {
-            if (!$this->supportsAttribute($attribute)) {
+            if (null === $masks = $this->permissionMap->getMasks($attribute, $object)) {
                 continue;
             }
 
-            try {
-                $acl = $this->aclProvider->findAcl($oid, $sids);
-            } catch (AclNotFoundException $noAcl) {
-                return self::ACCESS_DENIED;
+            if (null === $object) {
+                if (null !== $this->logger) {
+                    $this->logger->debug(sprintf('Object identity unavailable. Voting to %s', $this->allowIfObjectIdentityUnavailable? 'grant access' : 'abstain'));
+                }
+
+                return $this->allowIfObjectIdentityUnavailable ? self::ACCESS_GRANTED : self::ACCESS_ABSTAIN;
+            } elseif ($object instanceof FieldVote) {
+                $field = $object->getField();
+                $object = $object->getDomainObject();
+            } else {
+                $field = null;
             }
 
-            try {
-                if (null === $field && $acl->isGranted($this->permissionMap->getMasks($attribute), $sids, false)) {
-                    return self::ACCESS_GRANTED;
-                } else if (null !== $field && $acl->isFieldGranted($field, $this->permissionMap->getMasks($attribute), $sids, false)) {
-                    return self::ACCESS_GRANTED;
-                } else {
-                    return self::ACCESS_DENIED;
+            if ($object instanceof ObjectIdentityInterface) {
+                $oid = $object;
+            } elseif (null === $oid = $this->objectIdentityRetrievalStrategy->getObjectIdentity($object)) {
+                if (null !== $this->logger) {
+                    $this->logger->debug(sprintf('Object identity unavailable. Voting to %s', $this->allowIfObjectIdentityUnavailable? 'grant access' : 'abstain'));
                 }
+
+                return $this->allowIfObjectIdentityUnavailable ? self::ACCESS_GRANTED : self::ACCESS_ABSTAIN;
+            }
+
+            if (!$this->supportsClass($oid->getType())) {
+                return self::ACCESS_ABSTAIN;
+            }
+
+            $sids = $this->securityIdentityRetrievalStrategy->getSecurityIdentities($token);
+
+            try {
+                $acl = $this->aclProvider->findAcl($oid, $sids);
+
+                if (null === $field && $acl->isGranted($masks, $sids, false)) {
+                    if (null !== $this->logger) {
+                        $this->logger->debug('ACL found, permission granted. Voting to grant access');
+                    }
+
+                    return self::ACCESS_GRANTED;
+                } elseif (null !== $field && $acl->isFieldGranted($field, $masks, $sids, false)) {
+                    if (null !== $this->logger) {
+                        $this->logger->debug('ACL found, permission granted. Voting to grant access');
+                    }
+
+                    return self::ACCESS_GRANTED;
+                }
+
+                if (null !== $this->logger) {
+                    $this->logger->debug('ACL found, insufficient permissions. Voting to deny access.');
+                }
+
+                return self::ACCESS_DENIED;
+            } catch (AclNotFoundException $noAcl) {
+                if (null !== $this->logger) {
+                    $this->logger->debug('No ACL found for the object identity. Voting to deny access.');
+                }
+
+                return self::ACCESS_DENIED;
             } catch (NoAceFoundException $noAce) {
+                if (null !== $this->logger) {
+                    $this->logger->debug('ACL found, no ACE applicable. Voting to deny access.');
+                }
+
                 return self::ACCESS_DENIED;
             }
         }
 
+        // no attribute was supported
         return self::ACCESS_ABSTAIN;
     }
 
     /**
      * You can override this method when writing a voter for a specific domain
      * class.
+     *
+     * @param string $class The class name
      *
      * @return Boolean
      */

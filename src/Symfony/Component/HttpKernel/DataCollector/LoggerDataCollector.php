@@ -1,33 +1,33 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\HttpKernel\DataCollector;
 
-use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\HttpKernel\Log\DebugLoggerInterface;
 
 /**
  * LogDataCollector.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class LoggerDataCollector extends DataCollector
 {
-    protected $logger;
+    private $logger;
 
     public function __construct($logger = null)
     {
-        if (null !== $logger) {
-            $this->logger = $logger->getDebugLogger();
+        if (null !== $logger && $logger instanceof DebugLoggerInterface) {
+            $this->logger = $logger;
         }
     }
 
@@ -39,7 +39,7 @@ class LoggerDataCollector extends DataCollector
         if (null !== $this->logger) {
             $this->data = array(
                 'error_count' => $this->logger->countErrors(),
-                'logs'        => $this->logger->getLogs(),
+                'logs'        => $this->sanitizeLogs($this->logger->getLogs()),
             );
         }
     }
@@ -49,7 +49,7 @@ class LoggerDataCollector extends DataCollector
      *
      * @return array An array of called events
      *
-     * @see EventDispatcherTraceableInterface
+     * @see TraceableEventDispatcherInterface
      */
     public function countErrors()
     {
@@ -72,5 +72,35 @@ class LoggerDataCollector extends DataCollector
     public function getName()
     {
         return 'logger';
+    }
+
+    private function sanitizeLogs($logs)
+    {
+        foreach ($logs as $i => $log) {
+            $logs[$i]['context'] = $this->sanitizeContext($log['context']);
+        }
+
+        return $logs;
+    }
+
+    private function sanitizeContext($context)
+    {
+        if (is_array($context)) {
+            foreach ($context as $key => $value) {
+                $context[$key] = $this->sanitizeContext($value);
+            }
+
+            return $context;
+        }
+
+        if (is_resource($context)) {
+            return sprintf('Resource(%s)', get_resource_type($context));
+        }
+
+        if (is_object($context)) {
+            return sprintf('Object(%s)', get_class($context));
+        }
+
+        return $context;
     }
 }

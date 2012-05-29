@@ -1,27 +1,31 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Translation\Loader;
 
 use Symfony\Component\Translation\MessageCatalogue;
 
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
-
 /**
  * ArrayLoader loads translations from a PHP array.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class ArrayLoader implements LoaderInterface
 {
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function load($resource, $locale, $domain = 'messages')
     {
@@ -42,11 +46,11 @@ class ArrayLoader implements LoaderInterface
      *
      * This function takes an array by reference and will modify it
      *
-     * @param array $messages the array that will be flattened
-     * @param array $subnode current subnode being parsed, used internally for recursive calls
-     * @param string $path current path being parsed, used internally for recursive calls
+     * @param array  &$messages The array that will be flattened
+     * @param array  $subnode Current subnode being parsed, used internally for recursive calls
+     * @param string $path    Current path being parsed, used internally for recursive calls
      */
-    protected function flatten(array &$messages, array $subnode = null, $path = null)
+    private function flatten(array &$messages, array $subnode = null, $path = null)
     {
         if (null === $subnode) {
             $subnode =& $messages;

@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Security\Acl\Domain;
 
 use Doctrine\Common\Cache\Cache;
@@ -7,15 +16,6 @@ use Symfony\Component\Security\Acl\Model\AclCacheInterface;
 use Symfony\Component\Security\Acl\Model\AclInterface;
 use Symfony\Component\Security\Acl\Model\ObjectIdentityInterface;
 use Symfony\Component\Security\Acl\Model\PermissionGrantingStrategyInterface;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
 
 /**
  * This class is a wrapper around the actual cache implementation.
@@ -26,17 +26,16 @@ class DoctrineAclCache implements AclCacheInterface
 {
     const PREFIX = 'sf2_acl_';
 
-    protected $cache;
-    protected $prefix;
-    protected $permissionGrantingStrategy;
+    private $cache;
+    private $prefix;
+    private $permissionGrantingStrategy;
 
     /**
      * Constructor
      *
-     * @param Cache $cache
+     * @param Cache                               $cache
      * @param PermissionGrantingStrategyInterface $permissionGrantingStrategy
-     * @param string $prefix
-     * @return void
+     * @param string                              $prefix
      */
     public function __construct(Cache $cache, PermissionGrantingStrategyInterface $permissionGrantingStrategy, $prefix = self::PREFIX)
     {
@@ -145,7 +144,7 @@ class DoctrineAclCache implements AclCacheInterface
      * @param string $serialized
      * @return AclInterface
      */
-    protected function unserializeAcl($serialized)
+    private function unserializeAcl($serialized)
     {
         $acl = unserialize($serialized);
 
@@ -164,7 +163,7 @@ class DoctrineAclCache implements AclCacheInterface
         $reflectionProperty->setValue($acl, $this->permissionGrantingStrategy);
         $reflectionProperty->setAccessible(false);
 
-        $aceAclProperty = new \ReflectionProperty('Symfony\Component\Security\Acl\Domain\Entry', 'id');
+        $aceAclProperty = new \ReflectionProperty('Symfony\Component\Security\Acl\Domain\Entry', 'acl');
         $aceAclProperty->setAccessible(true);
 
         foreach ($acl->getObjectAces() as $ace) {
@@ -176,7 +175,7 @@ class DoctrineAclCache implements AclCacheInterface
 
         $aceClassFieldProperty = new \ReflectionProperty($acl, 'classFieldAces');
         $aceClassFieldProperty->setAccessible(true);
-        foreach ($aceClassFieldProperty->getValue($acl) as $field => $aces) {
+        foreach ($aceClassFieldProperty->getValue($acl) as $aces) {
             foreach ($aces as $ace) {
                 $aceAclProperty->setValue($ace, $acl);
             }
@@ -185,7 +184,7 @@ class DoctrineAclCache implements AclCacheInterface
 
         $aceObjectFieldProperty = new \ReflectionProperty($acl, 'objectFieldAces');
         $aceObjectFieldProperty->setAccessible(true);
-        foreach ($aceObjectFieldProperty->getValue($acl) as $field => $aces) {
+        foreach ($aceObjectFieldProperty->getValue($acl) as $aces) {
             foreach ($aces as $ace) {
                 $aceAclProperty->setValue($ace, $acl);
             }
@@ -203,7 +202,7 @@ class DoctrineAclCache implements AclCacheInterface
      * @param ObjectIdentityInterface $oid
      * @return string
      */
-    protected function getDataKeyByIdentity(ObjectIdentityInterface $oid)
+    private function getDataKeyByIdentity(ObjectIdentityInterface $oid)
     {
         return $this->prefix.md5($oid->getType()).sha1($oid->getType())
                .'_'.md5($oid->getIdentifier()).sha1($oid->getIdentifier());
@@ -215,7 +214,7 @@ class DoctrineAclCache implements AclCacheInterface
      * @param string $aclId
      * @return string
      */
-    protected function getAliasKeyForIdentity($aclId)
+    private function getAliasKeyForIdentity($aclId)
     {
         return $this->prefix.$aclId;
     }

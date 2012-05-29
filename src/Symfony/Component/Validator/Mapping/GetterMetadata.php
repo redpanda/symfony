@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Validator\Mapping;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Validator\Mapping;
 
 use Symfony\Component\Validator\Exception\ValidatorException;
 
@@ -28,7 +28,7 @@ class GetterMetadata extends MemberMetadata
 
         if (method_exists($class, $getMethod)) {
             $method = $getMethod;
-        } else if (method_exists($class, $isMethod)) {
+        } elseif (method_exists($class, $isMethod)) {
             $method = $isMethod;
         } else {
             throw new ValidatorException(sprintf('Neither method %s nor %s exists in class %s', $getMethod, $isMethod, $class));

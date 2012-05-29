@@ -1,29 +1,33 @@
 <?php
 
-namespace Symfony\Component\Translation;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Translation;
 
 /**
  * IdentityTranslator does not translate anything.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class IdentityTranslator implements TranslatorInterface
 {
-    protected $selector;
+    private $selector;
 
     /**
      * Constructor.
      *
      * @param MessageSelector $selector The message selector for pluralization
+     *
+     * @api
      */
     public function __construct(MessageSelector $selector)
     {
@@ -32,6 +36,8 @@ class IdentityTranslator implements TranslatorInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function setLocale($locale)
     {
@@ -39,6 +45,8 @@ class IdentityTranslator implements TranslatorInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function getLocale()
     {
@@ -46,6 +54,8 @@ class IdentityTranslator implements TranslatorInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function trans($id, array $parameters = array(), $domain = 'messages', $locale = null)
     {
@@ -54,6 +64,8 @@ class IdentityTranslator implements TranslatorInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function transChoice($id, $number, array $parameters = array(), $domain = 'messages', $locale = null)
     {

@@ -1,55 +1,107 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Bundle\TwigBundle\DependencyInjection;
 
-use Symfony\Component\DependencyInjection\Extension\Extension;
-use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
+use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
+use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 
 /**
  * TwigExtension.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ * @author Jeremy Mikola <jmikola@gmail.com>
  */
 class TwigExtension extends Extension
 {
     /**
-     * Loads the Twig configuration.
+     * Responds to the twig configuration parameter.
      *
-     * @param array            $config    An array of configuration settings
-     * @param ContainerBuilder $container A ContainerBuilder instance
+     * @param array            $configs
+     * @param ContainerBuilder $container
      */
-    public function configLoad($config, ContainerBuilder $container)
+    public function load(array $configs, ContainerBuilder $container)
     {
-        if (!$container->hasDefinition('twig')) {
-            $loader = new XmlFileLoader($container, __DIR__.'/../Resources/config');
-            $loader->load('twig.xml');
-        }
+        $loader = new XmlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
+        $loader->load('twig.xml');
 
-        // form resources
-        foreach (array('resources', 'resource') as $key) {
-            if (isset($config['form'][$key])) {
-                $resources = (array) $config['form'][$key];
-                $container->setParameter('twig.form.resources', array_merge($container->getParameter('twig.form.resources'), $resources));
-                unset($config['form'][$key]);
+        foreach ($configs as &$config) {
+            if (isset($config['globals'])) {
+                foreach ($config['globals'] as $name => $value) {
+                    if (is_array($value) && isset($value['key'])) {
+                        $config['globals'][$name] = array(
+                            'key'   => $name,
+                            'value' => $config['globals'][$name]
+                        );
+                    }
+                }
             }
         }
 
-        // convert - to _
-        foreach ($config as $key => $value) {
-            $config[str_replace('-', '_', $key)] = $value;
+        $configuration = $this->getConfiguration($configs, $container);
+
+        $config = $this->processConfiguration($configuration, $configs);
+
+        $container->setParameter('twig.exception_listener.controller', $config['exception_controller']);
+
+        $container->setParameter('twig.form.resources', $config['form']['resources']);
+
+        $reflClass = new \ReflectionClass('Symfony\Bridge\Twig\Extension\FormExtension');
+        $container->getDefinition('twig.loader')->addMethodCall('addPath', array(dirname(dirname($reflClass->getFileName())).'/Resources/views/Form'));
+
+        if (!empty($config['globals'])) {
+            $def = $container->getDefinition('twig');
+            foreach ($config['globals'] as $key => $global) {
+                if (isset($global['type']) && 'service' === $global['type']) {
+                    $def->addMethodCall('addGlobal', array($key, new Reference($global['id'])));
+                } else {
+                    $def->addMethodCall('addGlobal', array($key, $global['value']));
+                }
+            }
         }
 
-        $container->setParameter('twig.options', array_replace($container->getParameter('twig.options'), $config));
+        unset(
+            $config['form'],
+            $config['globals'],
+            $config['extensions']
+        );
+
+        $container->setParameter('twig.options', $config);
+
+        if ($container->getParameter('kernel.debug')) {
+            $loader->load('debug.xml');
+
+            $container->setDefinition('templating.engine.twig', $container->findDefinition('debug.templating.engine.twig'));
+            $container->setAlias('debug.templating.engine.twig', 'templating.engine.twig');
+        }
+
+        if (!isset($config['autoescape'])) {
+            $container->findDefinition('templating.engine.twig')->addMethodCall('setDefaultEscapingStrategy', array(array(new Reference('templating.engine.twig'), 'guessDefaultEscapingStrategy')));
+        }
+
+        $this->addClassesToCompile(array(
+            'Twig_Environment',
+            'Twig_ExtensionInterface',
+            'Twig_Extension',
+            'Twig_Extension_Core',
+            'Twig_Extension_Escaper',
+            'Twig_Extension_Optimizer',
+            'Twig_LoaderInterface',
+            'Twig_Markup',
+            'Twig_TemplateInterface',
+            'Twig_Template',
+        ));
     }
 
     /**
@@ -64,11 +116,6 @@ class TwigExtension extends Extension
 
     public function getNamespace()
     {
-        return 'http://www.symfony-project.org/schema/dic/twig';
-    }
-
-    public function getAlias()
-    {
-        return 'twig';
+        return 'http://symfony.com/schema/dic/twig';
     }
 }

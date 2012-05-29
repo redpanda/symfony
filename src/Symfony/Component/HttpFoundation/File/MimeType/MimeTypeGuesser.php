@@ -1,17 +1,18 @@
 <?php
 
-namespace Symfony\Component\HttpFoundation\File\MimeType;
-
-use Symfony\Component\HttpFoundation\File\Exception\FileNotFoundException;
-use Symfony\Component\HttpFoundation\File\Exception\AccessDeniedException;
-
 /*
- * This file is part of the symfony package.
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\HttpFoundation\File\MimeType;
+
+use Symfony\Component\HttpFoundation\File\Exception\FileNotFoundException;
+use Symfony\Component\HttpFoundation\File\Exception\AccessDeniedException;
 
 /**
  * A singleton mime type guesser.
@@ -27,7 +28,7 @@ use Symfony\Component\HttpFoundation\File\Exception\AccessDeniedException;
  *
  * The last registered guesser is preferred over previously registered ones.
  *
- * @author Bernhard Schussek <bernhard.schussek@symfony-project.com>
+ * @author Bernhard Schussek <bschussek@gmail.com>
  */
 class MimeTypeGuesser implements MimeTypeGuesserInterface
 {
@@ -62,10 +63,8 @@ class MimeTypeGuesser implements MimeTypeGuesserInterface
      */
     private function __construct()
     {
-        $this->register(new FileBinaryMimeTypeGuesser());
-
-        if (ContentTypeMimeTypeGuesser::isSupported()) {
-            $this->register(new ContentTypeMimeTypeGuesser());
+        if (FileBinaryMimeTypeGuesser::isSupported()) {
+            $this->register(new FileBinaryMimeTypeGuesser());
         }
 
         if (FileinfoMimeTypeGuesser::isSupported()) {
@@ -93,8 +92,10 @@ class MimeTypeGuesser implements MimeTypeGuesserInterface
      * returns a value that is not NULL, this method terminates and returns the
      * value.
      *
-     * @param  string $path   The path to the file
+     * @param string $path The path to the file
+     *
      * @return string         The mime type or NULL, if none could be guessed
+     *
      * @throws FileException  If the file does not exist
      */
     public function guess($path)
@@ -107,16 +108,14 @@ class MimeTypeGuesser implements MimeTypeGuesserInterface
             throw new AccessDeniedException($path);
         }
 
-        $mimeType = null;
-
-        foreach ($this->guessers as $guesser) {
-            $mimeType = $guesser->guess($path);
-
-            if (null !== $mimeType) {
-                break;
-            }
+        if (!$this->guessers) {
+            throw new \LogicException('Unable to guess the mime type as no guessers are available (Did you enable the php_fileinfo extension?)');
         }
 
-        return $mimeType;
+        foreach ($this->guessers as $guesser) {
+            if (null !== $mimeType = $guesser->guess($path)) {
+                return $mimeType;
+            }
+        }
     }
 }

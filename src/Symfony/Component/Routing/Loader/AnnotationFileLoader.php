@@ -1,24 +1,26 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Routing\Loader;
 
 use Symfony\Component\Routing\RouteCollection;
-use Symfony\Component\Routing\Resource\FileResource;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Config\Resource\FileResource;
+use Symfony\Component\Config\Loader\FileLoader;
+use Symfony\Component\Config\FileLocator;
 
 /**
  * AnnotationFileLoader loads routing information from annotations set
  * on a PHP class and its methods.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class AnnotationFileLoader extends FileLoader
 {
@@ -27,16 +29,17 @@ class AnnotationFileLoader extends FileLoader
     /**
      * Constructor.
      *
-     * @param AnnotationClassLoader $loader An AnnotationClassLoader instance
-     * @param string|array          $paths  A path or an array of paths where to look for resources
+     * @param FileLocator           $locator A FileLocator instance
+     * @param AnnotationClassLoader $loader  An AnnotationClassLoader instance
+     * @param string|array          $paths   A path or an array of paths where to look for resources
      */
-    public function __construct(AnnotationClassLoader $loader, $paths = array())
+    public function __construct(FileLocator $locator, AnnotationClassLoader $loader, $paths = array())
     {
         if (!function_exists('token_get_all')) {
             throw new \RuntimeException('The Tokenizer extension is required for the routing annotation loaders.');
         }
 
-        parent::__construct($paths);
+        parent::__construct($locator, $paths);
 
         $this->loader = $loader;
     }
@@ -53,10 +56,7 @@ class AnnotationFileLoader extends FileLoader
      */
     public function load($file, $type = null)
     {
-        $path = $this->getAbsolutePath($file);
-        if (!file_exists($path)) {
-            throw new \InvalidArgumentException(sprintf('The file "%s" cannot be found (in: %s).', $file, implode(', ', $this->paths)));
-        }
+        $path = $this->locator->locate($file);
 
         $collection = new RouteCollection();
         if ($class = $this->findClass($path)) {
@@ -73,7 +73,7 @@ class AnnotationFileLoader extends FileLoader
      * @param mixed  $resource A resource
      * @param string $type     The resource type
      *
-     * @return boolean True if this class supports the given resource, false otherwise
+     * @return Boolean True if this class supports the given resource, false otherwise
      */
     public function supports($resource, $type = null)
     {
@@ -85,14 +85,16 @@ class AnnotationFileLoader extends FileLoader
      *
      * @param string $file A PHP file path
      *
-     * @return string|false Full class name if found, false otherwise 
+     * @return string|false Full class name if found, false otherwise
      */
     protected function findClass($file)
     {
         $class = false;
         $namespace = false;
         $tokens = token_get_all(file_get_contents($file));
-        while ($token = array_shift($tokens)) {
+        for ($i = 0, $count = count($tokens); $i < $count; $i++) {
+            $token = $tokens[$i];
+
             if (!is_array($token)) {
                 continue;
             }
@@ -105,8 +107,8 @@ class AnnotationFileLoader extends FileLoader
                 $namespace = '';
                 do {
                     $namespace .= $token[1];
-                    $token = array_shift($tokens);
-                } while ($tokens && is_array($token) && in_array($token[0], array(T_NS_SEPARATOR, T_STRING)));
+                    $token = $tokens[++$i];
+                } while ($i < $count && is_array($token) && in_array($token[0], array(T_NS_SEPARATOR, T_STRING)));
             }
 
             if (T_CLASS === $token[0]) {

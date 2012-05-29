@@ -1,22 +1,23 @@
 <?php
 
-namespace Symfony\Component\Templating\Loader;
-
-use Symfony\Component\Templating\Storage;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\Templating\Loader;
+
+use Symfony\Component\Templating\Storage;
+use Symfony\Component\Templating\TemplateReferenceInterface;
+
 /**
  * ChainLoader is a loader that calls other loaders to load templates.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class ChainLoader extends Loader
 {
@@ -33,8 +34,6 @@ class ChainLoader extends Loader
         foreach ($loaders as $loader) {
             $this->addLoader($loader);
         }
-
-        parent::__construct();
     }
 
     /**
@@ -50,16 +49,15 @@ class ChainLoader extends Loader
     /**
      * Loads a template.
      *
-     * @param string $template The logical template name
-     * @param array  $options  An array of options
+     * @param TemplateReferenceInterface $template A template
      *
      * @return Storage|Boolean false if the template cannot be loaded, a Storage instance otherwise
      */
-    public function load($template, array $options = array())
+    public function load(TemplateReferenceInterface $template)
     {
         foreach ($this->loaders as $loader) {
-            if (false !== $ret = $loader->load($template, $options)) {
-                return $ret;
+            if (false !== $storage = $loader->load($template)) {
+                return $storage;
             }
         }
 
@@ -69,16 +67,15 @@ class ChainLoader extends Loader
     /**
      * Returns true if the template is still fresh.
      *
-     * @param string    $template The template name
-     * @param array     $options  An array of options
-     * @param timestamp $time     The last modification time of the cached template
+     * @param TemplateReferenceInterface $template A template
+     * @param integer                    $time     The last modification time of the cached template (timestamp)
+     *
+     * @return Boolean
      */
-    public function isFresh($template, array $options = array(), $time)
+    public function isFresh(TemplateReferenceInterface $template, $time)
     {
         foreach ($this->loaders as $loader) {
-            if (false !== $ret = $loader->load($template, $options)) {
-                return $loader->isFresh($template, $options);
-            }
+            return $loader->isFresh($template);
         }
 
         return false;

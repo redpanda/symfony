@@ -1,23 +1,22 @@
 <?php
 
-require_once __DIR__.'/src/Symfony/Component/HttpFoundation/UniversalClassLoader.php';
+$loader = require_once __DIR__.'/vendor/autoload.php';
 
-use Symfony\Component\HttpFoundation\UniversalClassLoader;
+use Doctrine\Common\Annotations\AnnotationRegistry;
 
-$loader = new UniversalClassLoader();
-$loader->registerNamespaces(array(
-    'Symfony'                        => __DIR__.'/src',
-    'Doctrine\\MongoDB'              => __DIR__.'/vendor/doctrine-mongodb/lib',
-    'Doctrine\\ODM\\MongoDB'         => __DIR__.'/vendor/doctrine-mongodb-odm/lib',
-    'Doctrine\\Common\\DataFixtures' => __DIR__.'/vendor/doctrine-data-fixtures/lib',
-    'Doctrine\\Common'               => __DIR__.'/vendor/doctrine-common/lib',
-    'Doctrine\\DBAL\\Migrations'     => __DIR__.'/vendor/doctrine-migrations/lib',
-    'Doctrine\\DBAL'                 => __DIR__.'/vendor/doctrine-dbal/lib',
-    'Doctrine'                       => __DIR__.'/vendor/doctrine/lib',
-    'Zend'                           => __DIR__.'/vendor/zend/library',
-));
-$loader->registerPrefixes(array(
-    'Swift_' => __DIR__.'/vendor/swiftmailer/lib/classes',
-    'Twig_'  => __DIR__.'/vendor/twig/lib',
-));
-$loader->register();
+if (!function_exists('intl_get_error_code')) {
+    require_once __DIR__.'/src/Symfony/Component/Locale/Resources/stubs/functions.php';
+
+    $loader->add('IntlDateFormatter', __DIR__.'/src/Symfony/Component/Locale/Resources/stubs');
+    $loader->add('Collator', __DIR__.'/src/Symfony/Component/Locale/Resources/stubs');
+    $loader->add('Locale', __DIR__.'/src/Symfony/Component/Locale/Resources/stubs');
+    $loader->add('NumberFormatter', __DIR__.'/src/Symfony/Component/Locale/Resources/stubs');
+}
+
+AnnotationRegistry::registerLoader(array($loader, 'loadClass'));
+AnnotationRegistry::registerFile(__DIR__.'/vendor/doctrine/orm/lib/Doctrine/ORM/Mapping/Driver/DoctrineAnnotations.php');
+
+if (is_file(__DIR__.'/vendor/swiftmailer/swiftmailer/lib/classes/Swift.php')) {
+    require_once __DIR__.'/vendor/swiftmailer/swiftmailer/lib/classes/Swift.php';
+    Swift::registerAutoload(__DIR__.'/vendor/swiftmailer/swiftmailer/lib/swift_init.php');
+}

@@ -1,22 +1,25 @@
 <?php
 
-namespace Symfony\Component\HttpKernel;
-
-use Symfony\Component\HttpFoundation\Request;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\HttpKernel;
+
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+
 /**
  * HttpKernelInterface handles a Request to convert it to a Response.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 interface HttpKernelInterface
 {
@@ -29,21 +32,16 @@ interface HttpKernelInterface
      * When $catch is true, the implementation must catch all exceptions
      * and do its best to convert them to a Response instance.
      *
-     * @param  Request $request A Request instance
-     * @param  integer $type    The type of the request
+     * @param Request $request A Request instance
+     * @param integer $type    The type of the request
      *                          (one of HttpKernelInterface::MASTER_REQUEST or HttpKernelInterface::SUB_REQUEST)
-     * @param  Boolean $catch   Whether to catch exceptions or not
+     * @param Boolean $catch Whether to catch exceptions or not
      *
      * @return Response A Response instance
      *
      * @throws \Exception When an Exception occurs during processing
+     *
+     * @api
      */
     function handle(Request $request, $type = self::MASTER_REQUEST, $catch = true);
-
-    /**
-     * Returns the current request.
-     *
-     * @return Request|null The request currently being handled
-     */
-    function getRequest();
 }

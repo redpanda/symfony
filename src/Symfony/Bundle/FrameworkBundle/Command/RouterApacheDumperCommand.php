@@ -1,47 +1,64 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Bundle\FrameworkBundle\Command;
 
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Output\Output;
 use Symfony\Component\Routing\Matcher\Dumper\ApacheMatcherDumper;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Routing\RouterInterface;
 
 /**
  * RouterApacheDumperCommand.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
-class RouterApacheDumperCommand extends Command
+class RouterApacheDumperCommand extends ContainerAwareCommand
 {
+    /**
+     * {@inheritDoc}
+     */
+    public function isEnabled()
+    {
+        if (!$this->getContainer()->has('router')) {
+            return false;
+        }
+        $router = $this->getContainer()->get('router');
+        if (!$router instanceof RouterInterface) {
+            return false;
+        }
+
+        return parent::isEnabled();
+    }
+
     /**
      * @see Command
      */
     protected function configure()
     {
         $this
-            ->setDefinition(array(
-                new InputArgument('script_name', InputArgument::OPTIONAL, 'The script name of the application\'s front controller.')
-            ))
             ->setName('router:dump-apache')
+            ->setDefinition(array(
+                new InputArgument('script_name', InputArgument::OPTIONAL, 'The script name of the application\'s front controller.'),
+                new InputOption('base-uri', null, InputOption::VALUE_REQUIRED, 'The base URI'),
+            ))
             ->setDescription('Dumps all routes as Apache rewrite rules')
             ->setHelp(<<<EOF
-The <info>router:dump-apache</info> dumps all routes as Apache rewrite rules.
+The <info>%command.name%</info> dumps all routes as Apache rewrite rules.
 These can then be used with the ApacheUrlMatcher to use Apache for route
 matching.
 
-  <info>router:dump-apache</info>
+  <info>php %command.full_name%</info>
 EOF
             )
         ;
@@ -52,15 +69,18 @@ EOF
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $router = $this->container->get('router');
+        $router = $this->getContainer()->get('router');
 
         $dumpOptions = array();
         if ($input->getArgument('script_name')) {
             $dumpOptions['script_name'] = $input->getArgument('script_name');
         }
+        if ($input->getOption('base-uri')) {
+            $dumpOptions['base_uri'] = $input->getOption('base-uri');
+        }
 
         $dumper = new ApacheMatcherDumper($router->getRouteCollection());
 
-        $output->writeln($dumper->dump($dumpOptions), Output::OUTPUT_RAW);
+        $output->writeln($dumper->dump($dumpOptions), OutputInterface::OUTPUT_RAW);
     }
 }

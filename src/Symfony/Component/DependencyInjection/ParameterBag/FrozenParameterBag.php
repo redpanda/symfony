@@ -1,57 +1,72 @@
 <?php
 
-namespace Symfony\Component\DependencyInjection\ParameterBag;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\DependencyInjection\ParameterBag;
+
+use Symfony\Component\DependencyInjection\Exception\LogicException;
+
 /**
- * 
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * Holds read-only parameters.
+ *
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class FrozenParameterBag extends ParameterBag
 {
     /**
      * Constructor.
      *
+     * For performance reasons, the constructor assumes that
+     * all keys are already lowercased.
+     *
+     * This is always the case when used internally.
+     *
      * @param array $parameters An array of parameters
+     *
+     * @api
      */
     public function __construct(array $parameters = array())
     {
-        foreach ($parameters as $key => $value) {
-            $this->parameters[strtolower($key)] = $value;
-        }
-    }
-
-    public function clear()
-    {
-        throw new \LogicException('Impossible to call clear() on a frozen ParameterBag.');
+        $this->parameters = $parameters;
+        $this->resolved = true;
     }
 
     /**
-     * Adds parameters to the service container parameters.
+     * {@inheritDoc}
      *
-     * @param array $parameters An array of parameters
+     * @api
+     */
+    public function clear()
+    {
+        throw new LogicException('Impossible to call clear() on a frozen ParameterBag.');
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @api
      */
     public function add(array $parameters)
     {
-        throw new \LogicException('Impossible to call add() on a frozen ParameterBag.');
+        throw new LogicException('Impossible to call add() on a frozen ParameterBag.');
     }
 
     /**
-     * Sets a service container parameter.
+     * {@inheritDoc}
      *
-     * @param string $name       The parameter name
-     * @param mixed  $parameters The parameter value
+     * @api
      */
     public function set($name, $value)
     {
-        throw new \LogicException('Impossible to call set() on a frozen ParameterBag.');
+        throw new LogicException('Impossible to call set() on a frozen ParameterBag.');
     }
 }

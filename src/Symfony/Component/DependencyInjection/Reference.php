@@ -1,38 +1,43 @@
 <?php
 
-namespace Symfony\Component\DependencyInjection;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\DependencyInjection;
 
 /**
  * Reference represents a service reference.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class Reference
 {
-    protected $id;
-    protected $invalidBehavior;
+    private $id;
+    private $invalidBehavior;
+    private $strict;
 
     /**
      * Constructor.
      *
-     * @param string $id              The service identifier
-     * @param int    $invalidBehavior The behavior when the service does not exist
+     * @param string  $id              The service identifier
+     * @param int     $invalidBehavior The behavior when the service does not exist
+     * @param Boolean $strict          Sets how this reference is validated
      *
      * @see Container
      */
-    public function __construct($id, $invalidBehavior = ContainerInterface::EXCEPTION_ON_INVALID_REFERENCE)
+    public function __construct($id, $invalidBehavior = ContainerInterface::EXCEPTION_ON_INVALID_REFERENCE, $strict = true)
     {
-        $this->id = $id;
+        $this->id = strtolower($id);
         $this->invalidBehavior = $invalidBehavior;
+        $this->strict = $strict;
     }
 
     /**
@@ -45,8 +50,23 @@ class Reference
         return (string) $this->id;
     }
 
+    /**
+     * Returns the behavior to be used when the service does not exist.
+     *
+     * @return int
+     */
     public function getInvalidBehavior()
     {
         return $this->invalidBehavior;
+    }
+
+    /**
+     * Returns true when this Reference is strict
+     *
+     * @return Boolean
+     */
+    public function isStrict()
+    {
+        return $this->strict;
     }
 }

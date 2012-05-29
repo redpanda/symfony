@@ -1,36 +1,37 @@
 <?php
 
-namespace Symfony\Component\Templating\Storage;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\Templating\Storage;
+
 /**
  * Storage is the base class for all storage classes.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 abstract class Storage
 {
-    protected $renderer;
     protected $template;
 
     /**
      * Constructor.
      *
      * @param string $template The template name
-     * @param string $renderer The renderer name
+     *
+     * @api
      */
-    public function __construct($template, $renderer = null)
+    public function __construct($template)
     {
         $this->template = $template;
-        $this->renderer = $renderer;
     }
 
     /**
@@ -47,16 +48,8 @@ abstract class Storage
      * Returns the content of the template.
      *
      * @return string The template content
+     *
+     * @api
      */
     abstract public function getContent();
-
-    /**
-     * Gets the renderer.
-     *
-     * @return string|null The renderer name or null if no renderer is stored for this template
-     */
-    public function getRenderer()
-    {
-        return $this->renderer;
-    }
 }

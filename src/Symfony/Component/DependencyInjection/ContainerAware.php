@@ -1,29 +1,38 @@
 <?php
 
-namespace Symfony\Component\DependencyInjection;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\DependencyInjection;
 
 /**
  * A simple implementation of ContainerAwareInterface.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class ContainerAware implements ContainerAwareInterface
 {
+    /**
+     * @var ContainerInterface
+     *
+     * @api
+     */
     protected $container;
 
     /**
      * Sets the Container associated with this Controller.
      *
      * @param ContainerInterface $container A ContainerInterface instance
+     *
+     * @api
      */
     public function setContainer(ContainerInterface $container = null)
     {

@@ -1,22 +1,24 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Translation;
 
-use Symfony\Component\Translation\Resource\ResourceInterface;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Config\Resource\ResourceInterface;
 
 /**
  * MessageCatalogueInterface.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 interface MessageCatalogueInterface
 {
@@ -24,6 +26,8 @@ interface MessageCatalogueInterface
      * Gets the catalogue locale.
      *
      * @return string The locale
+     *
+     * @api
      */
     function getLocale();
 
@@ -31,6 +35,8 @@ interface MessageCatalogueInterface
      * Gets the domains.
      *
      * @return array An array of domains
+     *
+     * @api
      */
     function getDomains();
 
@@ -42,6 +48,8 @@ interface MessageCatalogueInterface
      * @param string $domain The domain name
      *
      * @return array An array of messages
+     *
+     * @api
      */
     function all($domain = null);
 
@@ -51,6 +59,8 @@ interface MessageCatalogueInterface
      * @param string $id          The message id
      * @param string $translation The messages translation
      * @param string $domain      The domain name
+     *
+     * @api
      */
     function set($id, $translation, $domain = 'messages');
 
@@ -61,8 +71,22 @@ interface MessageCatalogueInterface
      * @param string $domain The domain name
      *
      * @return Boolean true if the message has a translation, false otherwise
+     *
+     * @api
      */
     function has($id, $domain = 'messages');
+
+    /**
+     * Checks if a message has a translation (it does not take into account the fallback mechanism).
+     *
+     * @param string $id     The message id
+     * @param string $domain The domain name
+     *
+     * @return Boolean true if the message has a translation, false otherwise
+     *
+     * @api
+     */
+    function defines($id, $domain = 'messages');
 
     /**
      * Gets a message translation.
@@ -71,6 +95,8 @@ interface MessageCatalogueInterface
      * @param string $domain The domain name
      *
      * @return string The message translation
+     *
+     * @api
      */
     function get($id, $domain = 'messages');
 
@@ -79,6 +105,8 @@ interface MessageCatalogueInterface
      *
      * @param string $messages An array of translations
      * @param string $domain   The domain name
+     *
+     * @api
      */
     function replace($messages, $domain = 'messages');
 
@@ -87,6 +115,8 @@ interface MessageCatalogueInterface
      *
      * @param string $messages An array of translations
      * @param string $domain   The domain name
+     *
+     * @api
      */
     function add($messages, $domain = 'messages');
 
@@ -96,6 +126,8 @@ interface MessageCatalogueInterface
      * The two catalogues must have the same locale.
      *
      * @param MessageCatalogueInterface $catalogue A MessageCatalogueInterface instance
+     *
+     * @api
      */
     function addCatalogue(MessageCatalogueInterface $catalogue);
 
@@ -106,13 +138,26 @@ interface MessageCatalogueInterface
      * This is used to provide default translations when they do not exist for the current locale.
      *
      * @param MessageCatalogueInterface $catalogue A MessageCatalogueInterface instance
+     *
+     * @api
      */
     function addFallbackCatalogue(MessageCatalogueInterface $catalogue);
+
+    /**
+     * Gets the fallback catalogue.
+     *
+     * @return MessageCatalogueInterface A MessageCatalogueInterface instance
+     *
+     * @api
+     */
+    function getFallbackCatalogue();
 
     /**
      * Returns an array of resources loaded to build this collection.
      *
      * @return ResourceInterface[] An array of resources
+     *
+     * @api
      */
     function getResources();
 
@@ -120,6 +165,8 @@ interface MessageCatalogueInterface
      * Adds a resource for this collection.
      *
      * @param ResourceInterface $resource A resource instance
+     *
+     * @api
      */
     function addResource(ResourceInterface $resource);
 }

@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Security\Acl\Model;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Security\Acl\Model;
 
 /**
  * This interface represents an access control list (ACL) for a domain object.
@@ -77,9 +77,9 @@ interface AclInterface extends \Serializable
     /**
      * Determines whether field access is granted
      *
-     * @param string $field
-     * @param array $masks
-     * @param array $securityIdentities
+     * @param string  $field
+     * @param array   $masks
+     * @param array   $securityIdentities
      * @param Boolean $administrativeMode
      * @return Boolean
      */
@@ -89,8 +89,8 @@ interface AclInterface extends \Serializable
      * Determines whether access is granted
      *
      * @throws NoAceFoundException when no ACE was applicable for this request
-     * @param array $masks
-     * @param array $securityIdentities
+     * @param array   $masks
+     * @param array   $securityIdentities
      * @param Boolean $administrativeMode
      * @return Boolean
      */

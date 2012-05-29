@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Security\Acl\Model;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Security\Acl\Model;
 
 /**
  * Interface for audit loggers
@@ -22,9 +22,8 @@ interface AuditLoggerInterface
      * This method is called whenever access is granted, or denied, and
      * administrative mode is turned off.
      *
-     * @param Boolean $granted
+     * @param Boolean        $granted
      * @param EntryInterface $ace
-     * @return void
      */
     function logIfNeeded($granted, EntryInterface $ace);
 }

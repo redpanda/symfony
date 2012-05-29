@@ -1,17 +1,16 @@
 <?php
 
-namespace Symfony\Component\Validator\Mapping\Loader;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 
-use Symfony\Component\Validator\Exception\MappingException;
+namespace Symfony\Component\Validator\Mapping\Loader;
+
 use Symfony\Component\Validator\Mapping\ClassMetadata;
 use Symfony\Component\Yaml\Yaml;
 
@@ -29,17 +28,25 @@ class YamlFileLoader extends FileLoader
     public function loadClassMetadata(ClassMetadata $metadata)
     {
         if (null === $this->classes) {
-            $this->classes = Yaml::load($this->file);
-        }
+            $this->classes = Yaml::parse($this->file);
 
-        // empty file
-        if (null === $this->classes) {
-            return false;
-        }
+            // empty file
+            if (null === $this->classes) {
+                return false;
+            }
 
-        // not an array
-        if (!is_array($this->classes)) {
-            throw new \InvalidArgumentException(sprintf('The file "%s" must contain a YAML array.', $this->file));
+            // not an array
+            if (!is_array($this->classes)) {
+                throw new \InvalidArgumentException(sprintf('The file "%s" must contain a YAML array.', $this->file));
+            }
+
+            if (isset($this->classes['namespaces'])) {
+                foreach ($this->classes['namespaces'] as $alias => $namespace) {
+                    $this->addNamespaceAlias($alias, $namespace);
+                }
+
+                unset($this->classes['namespaces']);
+            }
         }
 
         // TODO validation
@@ -47,24 +54,32 @@ class YamlFileLoader extends FileLoader
         if (isset($this->classes[$metadata->getClassName()])) {
             $yaml = $this->classes[$metadata->getClassName()];
 
-            if (isset($yaml['constraints'])) {
+            if (isset($yaml['group_sequence_provider'])) {
+                $metadata->setGroupSequenceProvider((bool)$yaml['group_sequence_provider']);
+            }
+
+            if (isset($yaml['constraints']) && is_array($yaml['constraints'])) {
                 foreach ($this->parseNodes($yaml['constraints']) as $constraint) {
                     $metadata->addConstraint($constraint);
                 }
             }
 
-            if (isset($yaml['properties'])) {
+            if (isset($yaml['properties']) && is_array($yaml['properties'])) {
                 foreach ($yaml['properties'] as $property => $constraints) {
-                    foreach ($this->parseNodes($constraints) as $constraint) {
-                        $metadata->addPropertyConstraint($property, $constraint);
+                    if (null !== $constraints) {
+                        foreach ($this->parseNodes($constraints) as $constraint) {
+                            $metadata->addPropertyConstraint($property, $constraint);
+                        }
                     }
                 }
             }
 
-            if (isset($yaml['getters'])) {
+            if (isset($yaml['getters']) && is_array($yaml['getters'])) {
                 foreach ($yaml['getters'] as $getter => $constraints) {
-                    foreach ($this->parseNodes($constraints) as $constraint) {
-                        $metadata->addGetterConstraint($getter, $constraint);
+                    if (null !== $constraints) {
+                        foreach ($this->parseNodes($constraints) as $constraint) {
+                            $metadata->addGetterConstraint($getter, $constraint);
+                        }
                     }
                 }
             }

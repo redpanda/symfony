@@ -1,37 +1,61 @@
 <?php
 
-namespace Symfony\Component\DependencyInjection;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\DependencyInjection;
 
 /**
  * SimpleXMLElement class.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class SimpleXMLElement extends \SimpleXMLElement
 {
+    /**
+     * Converts an attribute as a php type.
+     *
+     * @param string $name
+     *
+     * @return mixed
+     */
     public function getAttributeAsPhp($name)
     {
         return self::phpize($this[$name]);
     }
 
-    public function getArgumentsAsPhp($name)
+    /**
+     * Returns arguments as valid php types.
+     *
+     * @param string  $name
+     * @param Boolean $lowercase
+     *
+     * @return mixed
+     */
+    public function getArgumentsAsPhp($name, $lowercase = true)
     {
         $arguments = array();
         foreach ($this->$name as $arg) {
+            if (isset($arg['name'])) {
+                $arg['key'] = (string) $arg['name'];
+            }
             $key = isset($arg['key']) ? (string) $arg['key'] : (!$arguments ? 0 : max(array_keys($arguments)) + 1);
 
             // parameter keys are case insensitive
-            if ('parameter' == $name) {
+            if ('parameter' == $name && $lowercase) {
                 $key = strtolower($key);
+            }
+
+            // this is used by DefinitionDecorator to overwrite a specific
+            // argument of the parent definition
+            if (isset($arg['index'])) {
+                $key = 'index_'.$arg['index'];
             }
 
             switch ($arg['type']) {
@@ -42,10 +66,17 @@ class SimpleXMLElement extends \SimpleXMLElement
                     } elseif (isset($arg['on-invalid']) && 'null' == $arg['on-invalid']) {
                         $invalidBehavior = ContainerInterface::NULL_ON_INVALID_REFERENCE;
                     }
-                    $arguments[$key] = new Reference((string) $arg['id'], $invalidBehavior);
+
+                    if (isset($arg['strict'])) {
+                        $strict = self::phpize($arg['strict']);
+                    } else {
+                        $strict = true;
+                    }
+
+                    $arguments[$key] = new Reference((string) $arg['id'], $invalidBehavior, $strict);
                     break;
                 case 'collection':
-                    $arguments[$key] = $arg->getArgumentsAsPhp($name);
+                    $arguments[$key] = $arg->getArgumentsAsPhp($name, false);
                     break;
                 case 'string':
                     $arguments[$key] = (string) $arg;
@@ -61,6 +92,13 @@ class SimpleXMLElement extends \SimpleXMLElement
         return $arguments;
     }
 
+    /**
+     * Converts an xml value to a php type.
+     *
+     * @param mixed $value
+     *
+     * @return mixed
+     */
     static public function phpize($value)
     {
         $value = (string) $value;
@@ -70,7 +108,10 @@ class SimpleXMLElement extends \SimpleXMLElement
             case 'null' === $lowercaseValue:
                 return null;
             case ctype_digit($value):
-                return '0' == $value[0] ? octdec($value) : intval($value);
+                $raw = $value;
+                $cast = intval($value);
+
+                return '0' == $value[0] ? octdec($value) : (((string) $raw == (string) $cast) ? $cast : $raw);
             case 'true' === $lowercaseValue:
                 return true;
             case 'false' === $lowercaseValue:

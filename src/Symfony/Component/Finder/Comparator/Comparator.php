@@ -1,25 +1,25 @@
 <?php
 
-namespace Symfony\Component\Finder\Comparator;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Finder\Comparator;
 
 /**
  * Comparator.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com> PHP port
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class Comparator
 {
-    protected $target;
-    protected $operator = '==';
+    private $target;
+    private $operator = '==';
 
     /**
      * Gets the target value.
@@ -62,7 +62,7 @@ class Comparator
             $operator = '==';
         }
 
-        if (!in_array($operator, array('>', '<', '>=', '<=', '=='))) {
+        if (!in_array($operator, array('>', '<', '>=', '<=', '==', '!='))) {
             throw new \InvalidArgumentException(sprintf('Invalid operator "%s".', $operator));
         }
 
@@ -85,6 +85,8 @@ class Comparator
                 return $test < $this->target;
             case '<=':
                 return $test <= $this->target;
+            case '!=':
+                return $test != $this->target;
         }
 
         return $test == $this->target;

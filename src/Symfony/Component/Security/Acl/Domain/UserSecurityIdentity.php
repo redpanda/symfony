@@ -1,50 +1,76 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Security\Acl\Domain;
 
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Core\Util\ClassUtils;
 use Symfony\Component\Security\Acl\Model\SecurityIdentityInterface;
-use Symfony\Component\Security\Authentication\Token\TokenInterface;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
 
 /**
  * A SecurityIdentity implementation used for actual users
  *
- * FIXME: We need to also store the user provider id since the
- *        username might not be unique across all available user
- *        providers.
- *
  * @author Johannes M. Schmitt <schmittjoh@gmail.com>
  */
-class UserSecurityIdentity implements SecurityIdentityInterface
+final class UserSecurityIdentity implements SecurityIdentityInterface
 {
-    protected $username;
+    private $username;
+    private $class;
 
     /**
      * Constructor
      *
-     * @param mixed $username the username representation, or a TokenInterface
-     *              implementation
-     * @return void
+     * @param string $username the username representation
+     * @param string $class    the user's fully qualified class name
      */
-    public function __construct($username)
+    public function __construct($username, $class)
     {
-        if ($username instanceof TokenInterface) {
-            $username = (string) $username;
-        }
-
-        if (0 === strlen($username)) {
+        if (empty($username)) {
             throw new \InvalidArgumentException('$username must not be empty.');
         }
+        if (empty($class)) {
+            throw new \InvalidArgumentException('$class must not be empty.');
+        }
 
-        $this->username = $username;
+        $this->username = (string) $username;
+        $this->class = $class;
+    }
+
+    /**
+     * Creates a user security identity from a UserInterface
+     *
+     * @param UserInterface $user
+     * @return UserSecurityIdentity
+     */
+    static public function fromAccount(UserInterface $user)
+    {
+        return new self($user->getUsername(), ClassUtils::getRealClass($user));
+    }
+
+    /**
+     * Creates a user security identity from a TokenInterface
+     *
+     * @param TokenInterface $token
+     * @return UserSecurityIdentity
+     */
+    static public function fromToken(TokenInterface $token)
+    {
+        $user = $token->getUser();
+
+        if ($user instanceof UserInterface) {
+            return self::fromAccount($user);
+        }
+
+        return new self((string) $user, is_object($user) ? ClassUtils::getRealClass($user) : ClassUtils::getRealClass($token));
     }
 
     /**
@@ -58,6 +84,16 @@ class UserSecurityIdentity implements SecurityIdentityInterface
     }
 
     /**
+     * Returns the user's class name
+     *
+     * @return string
+     */
+    public function getClass()
+    {
+        return $this->class;
+    }
+
+    /**
      * {@inheritDoc}
      */
     public function equals(SecurityIdentityInterface $sid)
@@ -66,7 +102,8 @@ class UserSecurityIdentity implements SecurityIdentityInterface
             return false;
         }
 
-        return $this->username === $sid->getUsername();
+        return $this->username === $sid->getUsername()
+               && $this->class === $sid->getClass();
     }
 
     /**
@@ -78,6 +115,6 @@ class UserSecurityIdentity implements SecurityIdentityInterface
      */
     public function __toString()
     {
-        return sprintf('UserSecurityIdentity(%s)', $this->username);
+        return sprintf('UserSecurityIdentity(%s, %s)', $this->username, $this->class);
     }
 }

@@ -1,42 +1,45 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\DependencyInjection\Extension;
 
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
-
 /**
  * ExtensionInterface is the interface implemented by container extension classes.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 interface ExtensionInterface
 {
     /**
      * Loads a specific configuration.
      *
-     * @param string  $tag           The tag name
-     * @param array   $config        An array of configuration values
-     * @param ContainerBuilder $configuration A ContainerBuilder instance
+     * @param array            $config    An array of configuration values
+     * @param ContainerBuilder $container A ContainerBuilder instance
      *
-     * @return ContainerBuilder A ContainerBuilder instance
+     * @throws InvalidArgumentException When provided tag is not defined in this extension
      *
-     * @throws \InvalidArgumentException When provided tag is not defined in this extension
+     * @api
      */
-    function load($tag, array $config, ContainerBuilder $configuration);
+    function load(array $config, ContainerBuilder $container);
 
     /**
      * Returns the namespace to be used for this extension (XML namespace).
      *
      * @return string The XML namespace
+     *
+     * @api
      */
     function getNamespace();
 
@@ -44,6 +47,8 @@ interface ExtensionInterface
      * Returns the base path for the XSD files.
      *
      * @return string The XSD base path
+     *
+     * @api
      */
     function getXsdValidationBasePath();
 
@@ -53,6 +58,8 @@ interface ExtensionInterface
      * This alias is also the mandatory prefix to use when using YAML.
      *
      * @return string The alias
+     *
+     * @api
      */
     function getAlias();
 }

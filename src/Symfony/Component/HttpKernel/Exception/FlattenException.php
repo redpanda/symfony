@@ -1,38 +1,51 @@
 <?php
 
-namespace Symfony\Component\HttpKernel\Exception;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\HttpKernel\Exception;
 
 /**
  * FlattenException wraps a PHP Exception to be able to serialize it.
  *
  * Basically, this class removes all objects from the trace.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class FlattenException
 {
-    protected $message;
-    protected $code;
-    protected $previous;
-    protected $trace;
-    protected $class;
+    private $message;
+    private $code;
+    private $previous;
+    private $trace;
+    private $class;
+    private $statusCode;
+    private $headers;
+    private $file;
+    private $line;
 
-    static public function create(\Exception $exception)
+    static public function create(\Exception $exception, $statusCode = null, array $headers = array())
     {
         $e = new static();
         $e->setMessage($exception->getMessage());
         $e->setCode($exception->getCode());
+
+        if (null === $statusCode) {
+            $statusCode = $exception instanceof HttpExceptionInterface ? $exception->getStatusCode() : 500;
+        }
+
+        $e->setStatusCode($statusCode);
+        $e->setHeaders($headers);
         $e->setTrace($exception->getTrace(), $exception->getFile(), $exception->getLine());
         $e->setClass(get_class($exception));
+        $e->setFile($exception->getFile());
+        $e->setLine($exception->getLine());
         if ($exception->getPrevious()) {
             $e->setPrevious(static::create($exception->getPrevious()));
         }
@@ -43,15 +56,35 @@ class FlattenException
     public function toArray()
     {
         $exceptions = array();
-        foreach (array_merge(array($this), $this->getPreviouses()) as $exception) {
+        foreach (array_merge(array($this), $this->getAllPrevious()) as $exception) {
             $exceptions[] = array(
-                'message'  => $exception->getMessage(),
-                'class'    => $exception->getClass(),
-                'trace'    => $exception->getTrace(),
+                'message' => $exception->getMessage(),
+                'class'   => $exception->getClass(),
+                'trace'   => $exception->getTrace(),
             );
         }
 
         return $exceptions;
+    }
+
+    public function getStatusCode()
+    {
+        return $this->statusCode;
+    }
+
+    public function setStatusCode($code)
+    {
+        $this->statusCode = $code;
+    }
+
+    public function getHeaders()
+    {
+        return $this->headers;
+    }
+
+    public function setHeaders(array $headers)
+    {
+        $this->headers = $headers;
     }
 
     public function getClass()
@@ -62,6 +95,26 @@ class FlattenException
     public function setClass($class)
     {
         $this->class = $class;
+    }
+
+    public function getFile()
+    {
+        return $this->file;
+    }
+
+    public function setFile($file)
+    {
+        $this->file = $file;
+    }
+
+    public function getLine()
+    {
+        return $this->line;
+    }
+
+    public function setLine($line)
+    {
+        $this->line = $line;
     }
 
     public function getMessage()
@@ -94,7 +147,7 @@ class FlattenException
         $this->previous = $previous;
     }
 
-    public function getPreviouses()
+    public function getAllPrevious()
     {
         $exceptions = array();
         $e = $this;
@@ -145,20 +198,24 @@ class FlattenException
         }
     }
 
-    protected function flattenArgs($args)
+    private function flattenArgs($args, $level = 0)
     {
         $result = array();
         foreach ($args as $key => $value) {
             if (is_object($value)) {
                 $result[$key] = array('object', get_class($value));
             } elseif (is_array($value)) {
-                $result[$key] = array('array', $this->flattenArgs($value));
+                if ($level > 10) {
+                    $result[$key] = array('array', '*DEEP NESTED ARRAY*');
+                } else {
+                    $result[$key] = array('array', $this->flattenArgs($value, ++$level));
+                }
             } elseif (null === $value) {
                 $result[$key] = array('null', null);
             } elseif (is_bool($value)) {
                 $result[$key] = array('boolean', $value);
             } elseif (is_resource($value)) {
-                $result[$key] = array('resource', '');
+                $result[$key] = array('resource', get_resource_type($value));
             } else {
                 $result[$key] = array('string', (string) $value);
             }

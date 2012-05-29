@@ -1,31 +1,43 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Routing\Generator;
 
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Routing\RequestContextAwareInterface;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 
 /**
- * UrlGeneratorInterface is the interface that all URL generator classes must implements.
+ * UrlGeneratorInterface is the interface that all URL generator classes must implement.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
-interface UrlGeneratorInterface
+interface UrlGeneratorInterface extends RequestContextAwareInterface
 {
     /**
      * Generates a URL from the given parameters.
      *
-     * @param  string  $name       The name of the route
-     * @param  array   $parameters An array of parameters
-     * @param  Boolean $absolute   Whether to generate an absolute URL
+     * If the generator is not able to generate the url, it must throw the RouteNotFoundException
+     * as documented below.
+     *
+     * @param string  $name       The name of the route
+     * @param mixed   $parameters An array of parameters
+     * @param Boolean $absolute   Whether to generate an absolute URL
      *
      * @return string The generated URL
+     *
+     * @throws RouteNotFoundException if route doesn't exist
+     *
+     * @api
      */
-    function generate($name, array $parameters, $absolute = false);
+    function generate($name, $parameters = array(), $absolute = false);
 }

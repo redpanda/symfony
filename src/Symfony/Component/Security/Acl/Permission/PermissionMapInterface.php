@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Security\Acl\Permission;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Security\Acl\Permission;
 
 /**
  * This is the interface that must be implemented by permission maps.
@@ -25,9 +25,10 @@ interface PermissionMapInterface
      * these bitmasks.
      *
      * @param string $permission
-     * @return array
+     * @param object $object
+     * @return array may return null if permission/object combination is not supported
      */
-    function getMasks($permission);
+    function getMasks($permission, $object);
 
     /**
      * Whether this map contains the given permission

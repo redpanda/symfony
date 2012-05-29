@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\HttpKernel\Profiler;
 
 use Symfony\Component\HttpFoundation\Request;
@@ -8,32 +17,17 @@ use Symfony\Component\HttpKernel\Profiler\ProfilerStorageInterface;
 use Symfony\Component\HttpKernel\DataCollector\DataCollectorInterface;
 use Symfony\Component\HttpKernel\Log\LoggerInterface;
 
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
-
 /**
  * Profiler.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class Profiler
 {
-    protected $storage;
-    protected $collectors;
-    protected $logger;
-    protected $enabled;
-    protected $token;
-    protected $data;
-    protected $ip;
-    protected $url;
-    protected $time;
-    protected $empty;
+    private $storage;
+    private $collectors;
+    private $logger;
+    private $enabled;
 
     /**
      * Constructor.
@@ -47,7 +41,6 @@ class Profiler
         $this->logger = $logger;
         $this->collectors = array();
         $this->enabled = true;
-        $this->empty = true;
     }
 
     /**
@@ -59,34 +52,47 @@ class Profiler
     }
 
     /**
-     * Loads a Profiler for the given Response.
+     * Loads the Profile for the given Response.
      *
      * @param Response $response A Response instance
      *
-     * @return Profiler A new Profiler instance
+     * @return Profile A Profile instance
      */
-    public function loadFromResponse(Response $response)
+    public function loadProfileFromResponse(Response $response)
     {
         if (!$token = $response->headers->get('X-Debug-Token')) {
-            return null;
+            return false;
         }
 
-        return $this->loadFromToken($token);
+        return $this->loadProfile($token);
     }
 
     /**
-     * Loads a Profiler for the given token.
+     * Loads the Profile for the given token.
      *
      * @param string $token A token
      *
-     * @return Profiler A new Profiler instance
+     * @return Profile A Profile instance
      */
-    public function loadFromToken($token)
+    public function loadProfile($token)
     {
-        $profiler = new self($this->storage, $this->logger);
-        $profiler->setToken($token);
+        return $this->storage->read($token);
+    }
 
-        return $profiler;
+    /**
+     * Saves a Profile.
+     *
+     * @param Profile $profile A Profile instance
+     *
+     * @return Boolean
+     */
+    public function saveProfile(Profile $profile)
+    {
+        if (!($ret = $this->storage->write($profile)) && null !== $this->logger) {
+            $this->logger->warn('Unable to store the profiler information.');
+        }
+
+        return $ret;
     }
 
     /**
@@ -100,13 +106,13 @@ class Profiler
     /**
      * Exports the current profiler data.
      *
+     * @param Profile $profile A Profile instance
+     *
      * @return string The exported data
      */
-    public function export()
+    public function export(Profile $profile)
     {
-        $unpack = unpack('H*', serialize(array($this->token, $this->collectors, $this->ip, $this->url, $this->time)));
-
-        return $unpack[1];
+        return base64_encode(serialize($profile));
     }
 
     /**
@@ -114,108 +120,34 @@ class Profiler
      *
      * @param string $data A data string as exported by the export() method
      *
-     * @return string The token associated with the imported data
+     * @return Profile A Profile instance
      */
     public function import($data)
     {
-        list($token, $collectors, $ip, $url, $time) = unserialize(pack('H*', $data));
+        $profile = unserialize(base64_decode($data));
 
-        if (false !== $this->storage->read($token)) {
+        if ($this->storage->read($profile->getToken())) {
             return false;
         }
 
-        $unpack = unpack('H*', serialize($this->collectors));
+        $this->saveProfile($profile);
 
-        $this->storage->write($token, $unpack[1], $ip, $url, $time);
-
-        return $token;
-    }
-
-    /**
-     * Sets the token.
-     *
-     * @param string $token The token
-     */
-    public function setToken($token)
-    {
-        $this->token = $token;
-
-        if (false !== $items = $this->storage->read($token)) {
-            list($data, $this->ip, $this->url, $this->time) = $items;
-            $this->set(unserialize(pack('H*', $data)));
-
-            $this->empty = false;
-        } else {
-            $this->empty = true;
-        }
-    }
-
-    /**
-     * Gets the token.
-     *
-     * @return string The token
-     */
-    public function getToken()
-    {
-        if (null === $this->token) {
-            $this->token = uniqid();
-        }
-
-        return $this->token;
-    }
-
-    /**
-     * Checks if the profiler is empty.
-     *
-     * @return Boolean Whether the profiler is empty or not
-     */
-    public function isEmpty()
-    {
-        return $this->empty;
-    }
-
-    /**
-     * Returns the IP.
-     *
-     * @return string The IP
-     */
-    public function getIp()
-    {
-        return $this->ip;
-    }
-
-    /**
-     * Returns the URL.
-     *
-     * @return string The URL
-     */
-    public function getUrl()
-    {
-        return $this->url;
-    }
-
-    /**
-     * Returns the time.
-     *
-     * @return string The time
-     */
-    public function getTime()
-    {
-        return $this->time;
+        return $profile;
     }
 
     /**
      * Finds profiler tokens for the given criteria.
      *
-     * @param string $ip    The IP
-     * @param string $url   The URL
-     * @param string $limit The maximum number of tokens to return
+     * @param string $ip     The IP
+     * @param string $url    The URL
+     * @param string $limit  The maximum number of tokens to return
+     * @param string $method The request method
      *
      * @return array An array of tokens
      */
-    public function find($ip, $url, $limit)
+    public function find($ip, $url, $limit, $method)
     {
-        return $this->storage->find($ip, $url, $limit);
+        return $this->storage->find($ip, $url, $limit, $method);
     }
 
     /**
@@ -224,6 +156,8 @@ class Profiler
      * @param Request    $request   A Request instance
      * @param Response   $response  A Response instance
      * @param \Exception $exception An exception instance if the request threw one
+     *
+     * @return Profile|null A Profile instance or null if the profiler is disabled
      */
     public function collect(Request $request, Response $response, \Exception $exception = null)
     {
@@ -231,26 +165,22 @@ class Profiler
             return;
         }
 
-        $response = $response;
-        $response->headers->set('X-Debug-Token', $this->getToken());
+        $profile = new Profile(uniqid());
+        $profile->setTime(time());
+        $profile->setUrl($request->getUri());
+        $profile->setIp($request->server->get('REMOTE_ADDR'));
+        $profile->setMethod($request->getMethod());
+
+        $response->headers->set('X-Debug-Token', $profile->getToken());
 
         foreach ($this->collectors as $collector) {
             $collector->collect($request, $response, $exception);
+
+            // forces collectors to become "read/only" (they loose their object dependencies)
+            $profile->addCollector(unserialize(serialize($collector)));
         }
 
-        $this->ip   = $request->server->get('REMOTE_ADDR');
-        $this->url  = $request->getUri();
-        $this->time = time();
-
-        $unpack = unpack('H*', serialize($this->collectors));
-        try {
-            $this->storage->write($this->token, $unpack[1], $this->ip, $this->url, $this->time);
-            $this->empty = false;
-        } catch (\Exception $e) {
-            if (null !== $this->logger) {
-                $this->logger->err(sprintf('Unable to store the profiler information (%s).', $e->getMessage()));
-            }
-        }
+        return $profile;
     }
 
     /**
@@ -290,6 +220,8 @@ class Profiler
      * Returns true if a Collector for the given name exists.
      *
      * @param string $name A collector name
+     *
+     * @return Boolean
      */
     public function has($name)
     {

@@ -1,22 +1,22 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Bundle\FrameworkBundle\Console;
 
 use Symfony\Component\Console\Shell as BaseShell;
 
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
-
 /**
  * Shell.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class Shell extends BaseShell
 {
@@ -29,14 +29,14 @@ class Shell extends BaseShell
     {
         return <<<EOF
 <info>
-      _____                  __                  ___  
-     / ____|                / _|                |__ \ 
+      _____                  __                  ___
+     / ____|                / _|                |__ \
     | (___  _   _ _ __ ___ | |_ ___  _ __  _   _   ) |
-     \___ \| | | | '_ ` _ \|  _/ _ \| '_ \| | | | / / 
-     ____) | |_| | | | | | | || (_) | | | | |_| |/ /_ 
+     \___ \| | | | '_ ` _ \|  _/ _ \| '_ \| | | | / /
+     ____) | |_| | | | | | | || (_) | | | | |_| |/ /_
     |_____/ \__, |_| |_| |_|_| \___/|_| |_|\__, |____|
-             __/ |                          __/ |       
-            |___/                          |___/        
+             __/ |                          __/ |
+            |___/                          |___/
 
 </info>
 EOF

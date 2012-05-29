@@ -1,17 +1,17 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\HttpKernel\Controller;
 
 use Symfony\Component\HttpFoundation\Request;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
 
 /**
  * A ControllerResolverInterface implementation knows how to determine the
@@ -21,7 +21,9 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * A Controller can be any valid PHP callable.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 interface ControllerResolverInterface
 {
@@ -40,6 +42,8 @@ interface ControllerResolverInterface
      *                       or false if this resolver is not able to determine the controller
      *
      * @throws \InvalidArgumentException|\LogicException If the controller can't be found
+     *
+     * @api
      */
     function getController(Request $request);
 
@@ -49,7 +53,11 @@ interface ControllerResolverInterface
      * @param Request $request    A Request instance
      * @param mixed   $controller A PHP callable
      *
+     * @return array An array of arguments to pass to the controller
+     *
      * @throws \RuntimeException When value for argument given is not provided
+     *
+     * @api
      */
     function getArguments(Request $request, $controller);
 }

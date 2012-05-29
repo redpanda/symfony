@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Security\Acl\Permission;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Security\Acl\Permission;
 
 /**
  * This is basic permission map complements the masks which have been defined
@@ -28,7 +28,7 @@ class BasicPermissionMap implements PermissionMapInterface
     const PERMISSION_MASTER      = 'MASTER';
     const PERMISSION_OWNER       = 'OWNER';
 
-    protected $map = array(
+    private $map = array(
         self::PERMISSION_VIEW => array(
             MaskBuilder::MASK_VIEW,
             MaskBuilder::MASK_EDIT,
@@ -84,10 +84,10 @@ class BasicPermissionMap implements PermissionMapInterface
     /**
      * {@inheritDoc}
      */
-    public function getMasks($permission)
+    public function getMasks($permission, $object)
     {
         if (!isset($this->map[$permission])) {
-            throw new \InvalidArgumentException(sprintf('The permission "%s" is not supported by this implementation.', $permission));
+            return null;
         }
 
         return $this->map[$permission];

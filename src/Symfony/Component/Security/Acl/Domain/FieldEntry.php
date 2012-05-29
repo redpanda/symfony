@@ -1,42 +1,41 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Security\Acl\Domain;
 
 use Symfony\Component\Security\Acl\Model\AclInterface;
-use Symfony\Component\Security\Acl\Model\FieldAwareEntryInterface;
+use Symfony\Component\Security\Acl\Model\FieldEntryInterface;
 use Symfony\Component\Security\Acl\Model\SecurityIdentityInterface;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
 
 /**
  * Field-aware ACE implementation which is auditable
  *
  * @author Johannes M. Schmitt <schmittjoh@gmail.com>
  */
-class FieldEntry extends Entry implements FieldAwareEntryInterface
+class FieldEntry extends Entry implements FieldEntryInterface
 {
-    protected $field;
+    private $field;
 
     /**
      * Constructor
      *
-     * @param integer $id
-     * @param AclInterface $acl
-     * @param string $field
+     * @param integer                   $id
+     * @param AclInterface              $acl
+     * @param string                    $field
      * @param SecurityIdentityInterface $sid
-     * @param string $strategy
-     * @param integer $mask
-     * @param Boolean $granting
-     * @param Boolean $auditFailure
-     * @param Boolean $auditSuccess
-     * @return void
+     * @param string                    $strategy
+     * @param integer                   $mask
+     * @param Boolean                   $granting
+     * @param Boolean                   $auditFailure
+     * @param Boolean                   $auditSuccess
      */
     public function __construct($id, AclInterface $acl, $field, SecurityIdentityInterface $sid, $strategy, $mask, $granting, $auditFailure, $auditSuccess)
     {
@@ -60,13 +59,7 @@ class FieldEntry extends Entry implements FieldAwareEntryInterface
     {
         return serialize(array(
             $this->field,
-            $this->mask,
-            $this->id,
-            $this->securityIdentity,
-            $this->strategy,
-            $this->auditFailure,
-            $this->auditSuccess,
-            $this->granting,
+            parent::serialize(),
         ));
     }
 
@@ -75,14 +68,7 @@ class FieldEntry extends Entry implements FieldAwareEntryInterface
      */
     public function unserialize($serialized)
     {
-        list($this->field,
-             $this->mask,
-             $this->id,
-             $this->securityIdentity,
-             $this->strategy,
-             $this->auditFailure,
-             $this->auditSuccess,
-             $this->granting
-        ) = unserialize($serialized);
+        list($this->field, $parentStr) = unserialize($serialized);
+        parent::unserialize($parentStr);
     }
 }

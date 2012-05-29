@@ -1,22 +1,24 @@
 <?php
 
-namespace Symfony\Component\HttpFoundation;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\HttpFoundation;
+
 /**
  * HeaderBag is a container for HTTP headers.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
-class HeaderBag
+class HeaderBag implements \IteratorAggregate, \Countable
 {
     protected $headers;
     protected $cacheControl;
@@ -25,17 +27,48 @@ class HeaderBag
      * Constructor.
      *
      * @param array $headers An array of HTTP headers
+     *
+     * @api
      */
     public function __construct(array $headers = array())
     {
         $this->cacheControl = array();
-        $this->replace($headers);
+        $this->headers = array();
+        foreach ($headers as $key => $values) {
+            $this->set($key, $values);
+        }
+    }
+
+    /**
+     * Returns the headers as a string.
+     *
+     * @return string The headers
+     */
+    public function __toString()
+    {
+        if (!$this->headers) {
+            return '';
+        }
+
+        $max = max(array_map('strlen', array_keys($this->headers))) + 1;
+        $content = '';
+        ksort($this->headers);
+        foreach ($this->headers as $name => $values) {
+            $name = implode('-', array_map('ucfirst', explode('-', $name)));
+            foreach ($values as $value) {
+                $content .= sprintf("%-{$max}s %s\r\n", $name.':', $value);
+            }
+        }
+
+        return $content;
     }
 
     /**
      * Returns the headers.
      *
      * @return array An array of headers
+     *
+     * @api
      */
     public function all()
     {
@@ -46,6 +79,8 @@ class HeaderBag
      * Returns the parameter keys.
      *
      * @return array An array of parameter keys
+     *
+     * @api
      */
     public function keys()
     {
@@ -55,11 +90,25 @@ class HeaderBag
     /**
      * Replaces the current HTTP headers by a new set.
      *
-     * @param array  $headers An array of HTTP headers
+     * @param array $headers An array of HTTP headers
+     *
+     * @api
      */
     public function replace(array $headers = array())
     {
         $this->headers = array();
+        $this->add($headers);
+    }
+
+    /**
+     * Adds new headers the current HTTP headers set.
+     *
+     * @param array $headers An array of HTTP headers
+     *
+     * @api
+     */
+    public function add(array $headers)
+    {
         foreach ($headers as $key => $values) {
             $this->set($key, $values);
         }
@@ -73,6 +122,8 @@ class HeaderBag
      * @param Boolean $first   Whether to return the first value or all header values
      *
      * @return string|array The first header value if $first is true, an array of values otherwise
+     *
+     * @api
      */
     public function get($key, $default = null, $first = true)
     {
@@ -81,16 +132,16 @@ class HeaderBag
         if (!array_key_exists($key, $this->headers)) {
             if (null === $default) {
                 return $first ? null : array();
-            } else {
-                return $first ? $default : array($default);
             }
+
+            return $first ? $default : array($default);
         }
 
         if ($first) {
             return count($this->headers[$key]) ? $this->headers[$key][0] : $default;
-        } else {
-            return $this->headers[$key];
         }
+
+        return $this->headers[$key];
     }
 
     /**
@@ -99,14 +150,14 @@ class HeaderBag
      * @param string       $key     The key
      * @param string|array $values  The value or an array of values
      * @param Boolean      $replace Whether to replace the actual value of not (true by default)
+     *
+     * @api
      */
     public function set($key, $values, $replace = true)
     {
         $key = strtr(strtolower($key), '_', '-');
 
-        if (!is_array($values)) {
-            $values = array($values);
-        }
+        $values = (array) $values;
 
         if (true === $replace || !isset($this->headers[$key])) {
             $this->headers[$key] = $values;
@@ -125,6 +176,8 @@ class HeaderBag
      * @param string $key The HTTP header
      *
      * @return Boolean true if the parameter exists, false otherwise
+     *
+     * @api
      */
     public function has($key)
     {
@@ -138,6 +191,8 @@ class HeaderBag
      * @param string $value The HTTP value
      *
      * @return Boolean true if the value is contained in the header, false otherwise
+     *
+     * @api
      */
     public function contains($key, $value)
     {
@@ -148,6 +203,8 @@ class HeaderBag
      * Removes a header.
      *
      * @param string $key The HTTP header name
+     *
+     * @api
      */
     public function remove($key)
     {
@@ -161,32 +218,14 @@ class HeaderBag
     }
 
     /**
-     * Sets a cookie.
-     *
-     * @param  string $name     The cookie name
-     * @param  string $value    The value of the cookie
-     * @param  string $domain   The domain that the cookie is available
-     * @param  string $expire   The time the cookie expires
-     * @param  string $path     The path on the server in which the cookie will be available on
-     * @param  bool   $secure   Indicates that the cookie should only be transmitted over a secure HTTPS connection from the client
-     * @param  bool   $httponly When TRUE the cookie will not be made accessible to JavaScript, preventing XSS attacks from stealing cookies
-     *
-     * @throws \InvalidArgumentException When the cookie expire parameter is not valid
-     */
-    public function setCookie($name, $value, $domain = null, $expires = null, $path = '/', $secure = false, $httponly = true)
-    {
-        $this->validateCookie($name, $value);
-
-        return $this->set('Cookie', sprintf('%s=%s', $name, urlencode($value)));
-    }
-
-    /**
      * Returns the HTTP header value converted to a date.
      *
      * @param string    $key     The parameter key
      * @param \DateTime $default The default value
      *
      * @return \DateTime The filtered value
+     *
+     * @api
      */
     public function getDate($key, \DateTime $default = null)
     {
@@ -225,6 +264,26 @@ class HeaderBag
         $this->set('Cache-Control', $this->getCacheControlHeader());
     }
 
+    /**
+     * Returns an iterator for headers.
+     *
+     * @return \ArrayIterator An \ArrayIterator instance
+     */
+    public function getIterator()
+    {
+        return new \ArrayIterator($this->headers);
+    }
+
+    /**
+     * Returns the number of headers.
+     *
+     * @return int The number of headers
+     */
+    public function count()
+    {
+        return count($this->headers);
+    }
+
     protected function getCacheControlHeader()
     {
         $parts = array();
@@ -260,21 +319,5 @@ class HeaderBag
         }
 
         return $cacheControl;
-    }
-
-    protected function validateCookie($name, $value)
-    {
-        // from PHP source code
-        if (preg_match("/[=,; \t\r\n\013\014]/", $name)) {
-            throw new \InvalidArgumentException(sprintf('The cookie name "%s" contains invalid characters.', $name));
-        }
-
-        if (preg_match("/[,; \t\r\n\013\014]/", $value)) {
-            throw new \InvalidArgumentException(sprintf('The cookie value "%s" contains invalid characters.', $name));
-        }
-
-        if (!$name) {
-            throw new \InvalidArgumentException('The cookie name cannot be empty');
-        }
     }
 }

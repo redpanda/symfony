@@ -1,43 +1,43 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Security\Acl\Domain;
 
+use Symfony\Component\Security\Core\Util\ClassUtils;
 use Symfony\Component\Security\Acl\Exception\InvalidDomainObjectException;
 use Symfony\Component\Security\Acl\Model\DomainObjectInterface;
 use Symfony\Component\Security\Acl\Model\ObjectIdentityInterface;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
 
 /**
  * ObjectIdentity implementation
  *
  * @author Johannes M. Schmitt <schmittjoh@gmail.com>
  */
-class ObjectIdentity implements ObjectIdentityInterface
+final class ObjectIdentity implements ObjectIdentityInterface
 {
-    protected $identifier;
-    protected $type;
+    private $identifier;
+    private $type;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param string $identifier
      * @param string $type
-     * @return void
      */
     public function __construct($identifier, $type)
     {
-        if (0 === strlen($identifier)) {
+        if (empty($identifier)) {
             throw new \InvalidArgumentException('$identifier cannot be empty.');
         }
-        if (0 === strlen($type)) {
+        if (empty($type)) {
             throw new \InvalidArgumentException('$type cannot be empty.');
         }
 
@@ -52,16 +52,20 @@ class ObjectIdentity implements ObjectIdentityInterface
      * @throws \InvalidArgumentException
      * @return ObjectIdentity
      */
-    public static function fromDomainObject($domainObject)
+    static public function fromDomainObject($domainObject)
     {
         if (!is_object($domainObject)) {
             throw new InvalidDomainObjectException('$domainObject must be an object.');
         }
 
-        if ($domainObject instanceof DomainObjectInterface) {
-            return new self($domainObject->getObjectIdentifier(), get_class($domainObject));
-        } else if (method_exists($domainObject, 'getId')) {
-            return new self($domainObject->getId(), get_class($domainObject));
+        try {
+            if ($domainObject instanceof DomainObjectInterface) {
+                return new self($domainObject->getObjectIdentifier(), ClassUtils::getRealClass($domainObject));
+            } elseif (method_exists($domainObject, 'getId')) {
+                return new self($domainObject->getId(), ClassUtils::getRealClass($domainObject));
+            }
+        } catch (\InvalidArgumentException $invalid) {
+            throw new InvalidDomainObjectException($invalid->getMessage(), 0, $invalid);
         }
 
         throw new InvalidDomainObjectException('$domainObject must either implement the DomainObjectInterface, or have a method named "getId".');

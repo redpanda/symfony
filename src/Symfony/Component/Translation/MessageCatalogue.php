@@ -1,34 +1,40 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Translation;
 
-use Symfony\Component\Translation\Resource\ResourceInterface;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Config\Resource\ResourceInterface;
 
 /**
  * MessageCatalogue.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class MessageCatalogue implements MessageCatalogueInterface
 {
-    protected $messages = array();
-    protected $locale;
-    protected $resources;
+    private $messages = array();
+    private $locale;
+    private $resources;
+    private $fallbackCatalogue;
+    private $parent;
 
     /**
      * Constructor.
      *
      * @param string $locale   The locale
      * @param array  $messages An array of messages classified by domain
+     *
+     * @api
      */
     public function __construct($locale, array $messages = array())
     {
@@ -39,6 +45,8 @@ class MessageCatalogue implements MessageCatalogueInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function getLocale()
     {
@@ -47,6 +55,8 @@ class MessageCatalogue implements MessageCatalogueInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function getDomains()
     {
@@ -55,6 +65,8 @@ class MessageCatalogue implements MessageCatalogueInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function all($domain = null)
     {
@@ -67,6 +79,8 @@ class MessageCatalogue implements MessageCatalogueInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function set($id, $translation, $domain = 'messages')
     {
@@ -75,22 +89,52 @@ class MessageCatalogue implements MessageCatalogueInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function has($id, $domain = 'messages')
+    {
+        if (isset($this->messages[$domain][$id])) {
+            return true;
+        }
+
+        if (null !== $this->fallbackCatalogue) {
+            return $this->fallbackCatalogue->has($id, $domain);
+        }
+
+        return false;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function defines($id, $domain = 'messages')
     {
         return isset($this->messages[$domain][$id]);
     }
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function get($id, $domain = 'messages')
     {
-        return isset($this->messages[$domain][$id]) ? $this->messages[$domain][$id] : $id;
+        if (isset($this->messages[$domain][$id])) {
+            return $this->messages[$domain][$id];
+        }
+
+        if (null !== $this->fallbackCatalogue) {
+            return $this->fallbackCatalogue->get($id, $domain);
+        }
+
+        return $id;
     }
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function replace($messages, $domain = 'messages')
     {
@@ -101,6 +145,8 @@ class MessageCatalogue implements MessageCatalogueInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function add($messages, $domain = 'messages')
     {
@@ -113,6 +159,8 @@ class MessageCatalogue implements MessageCatalogueInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function addCatalogue(MessageCatalogueInterface $catalogue)
     {
@@ -131,16 +179,21 @@ class MessageCatalogue implements MessageCatalogueInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function addFallbackCatalogue(MessageCatalogueInterface $catalogue)
     {
-        foreach ($catalogue->getDomains() as $domain) {
-            foreach ($catalogue->all($domain) as $id => $translation) {
-                if (false === $this->has($id, $domain)) {
-                    $this->set($id, $translation, $domain);
-                }
+        // detect circular references
+        $c = $this;
+        do {
+            if ($c->getLocale() === $catalogue->getLocale()) {
+                throw new \LogicException(sprintf('Circular reference detected when adding a fallback catalogue for locale "%s".', $catalogue->getLocale()));
             }
-        }
+        } while ($c = $c->parent);
+
+        $catalogue->parent = $this;
+        $this->fallbackCatalogue = $catalogue;
 
         foreach ($catalogue->getResources() as $resource) {
             $this->addResource($resource);
@@ -148,7 +201,21 @@ class MessageCatalogue implements MessageCatalogueInterface
     }
 
     /**
+     * Gets the fallback catalogue.
+     *
+     * @return MessageCatalogueInterface A MessageCatalogueInterface instance
+     *
+     * @api
+     */
+    public function getFallbackCatalogue()
+    {
+        return $this->fallbackCatalogue;
+    }
+
+    /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function getResources()
     {
@@ -157,6 +224,8 @@ class MessageCatalogue implements MessageCatalogueInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @api
      */
     public function addResource(ResourceInterface $resource)
     {

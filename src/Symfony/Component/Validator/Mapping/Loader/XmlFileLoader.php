@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Validator\Mapping\Loader;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Validator\Mapping\Loader;
 
 use Symfony\Component\Validator\Exception\MappingException;
 use Symfony\Component\Validator\Mapping\ClassMetadata;
@@ -31,13 +31,21 @@ class XmlFileLoader extends FileLoader
             $this->classes = array();
             $xml = $this->parseFile($this->file);
 
+            foreach ($xml->namespace as $namespace) {
+                $this->addNamespaceAlias((string) $namespace['prefix'], trim((string) $namespace));
+            }
+
             foreach ($xml->class as $class) {
-                $this->classes[(string)$class['name']] = $class;
+                $this->classes[(string) $class['name']] = $class;
             }
         }
 
         if (isset($this->classes[$metadata->getClassName()])) {
             $xml = $this->classes[$metadata->getClassName()];
+
+            foreach ($xml->{'group-sequence-provider'} as $provider) {
+                $metadata->setGroupSequenceProvider(true);
+            }
 
             foreach ($this->parseConstraints($xml->constraint) as $constraint) {
                 $metadata->addConstraint($constraint);
@@ -45,13 +53,13 @@ class XmlFileLoader extends FileLoader
 
             foreach ($xml->property as $property) {
                 foreach ($this->parseConstraints($property->constraint) as $constraint) {
-                    $metadata->addPropertyConstraint((string)$property['name'], $constraint);
+                    $metadata->addPropertyConstraint((string) $property['name'], $constraint);
                 }
             }
 
             foreach ($xml->getter as $getter) {
                 foreach ($this->parseConstraints($getter->constraint) as $constraint) {
-                    $metadata->addGetterConstraint((string)$getter['property'], $constraint);
+                    $metadata->addGetterConstraint((string) $getter['property'], $constraint);
                 }
             }
 
@@ -76,14 +84,14 @@ class XmlFileLoader extends FileLoader
             if (count($node) > 0) {
                 if (count($node->value) > 0) {
                     $options = $this->parseValues($node->value);
-                } else if (count($node->constraint) > 0) {
+                } elseif (count($node->constraint) > 0) {
                     $options = $this->parseConstraints($node->constraint);
-                } else if (count($node->option) > 0) {
+                } elseif (count($node->option) > 0) {
                     $options = $this->parseOptions($node->option);
                 } else {
                     $options = array();
                 }
-            } else if (strlen((string)$node) > 0) {
+            } elseif (strlen((string) $node) > 0) {
                 $options = trim($node);
             } else {
                 $options = null;
@@ -110,7 +118,7 @@ class XmlFileLoader extends FileLoader
             if (count($node) > 0) {
                 if (count($node->value) > 0) {
                     $value = $this->parseValues($node->value);
-                } else if (count($node->constraint) > 0) {
+                } elseif (count($node->constraint) > 0) {
                     $value = $this->parseConstraints($node->constraint);
                 } else {
                     $value = array();
@@ -120,7 +128,7 @@ class XmlFileLoader extends FileLoader
             }
 
             if (isset($node['key'])) {
-                $values[(string)$node['key']] = $value;
+                $values[(string) $node['key']] = $value;
             } else {
                 $values[] = $value;
             }
@@ -144,7 +152,7 @@ class XmlFileLoader extends FileLoader
             if (count($node) > 0) {
                 if (count($node->value) > 0) {
                     $value = $this->parseValues($node->value);
-                } else if (count($node->constraint) > 0) {
+                } elseif (count($node->constraint) > 0) {
                     $value = $this->parseConstraints($node->constraint);
                 } else {
                     $value = array();
@@ -153,7 +161,7 @@ class XmlFileLoader extends FileLoader
                 $value = trim($node);
             }
 
-            $options[(string)$node['name']] = $value;
+            $options[(string) $node['name']] = $value;
         }
 
         return $options;
@@ -172,7 +180,7 @@ class XmlFileLoader extends FileLoader
     {
         $dom = new \DOMDocument();
         libxml_use_internal_errors(true);
-        if (!$dom->load($file, LIBXML_COMPACT)) {
+        if (!$dom->load($file, defined('LIBXML_COMPACT') ? LIBXML_COMPACT : 0)) {
             throw new MappingException(implode("\n", $this->getXmlErrors()));
         }
         if (!$dom->schemaValidate(__DIR__.'/schema/dic/constraint-mapping/constraint-mapping-1.0.xsd')) {

@@ -1,15 +1,15 @@
 <?php
 
-namespace Symfony\Component\Translation;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Translation;
 
 /**
  * Tests if a given number belongs to a given math interval.
@@ -27,9 +27,9 @@ namespace Symfony\Component\Translation;
  * The right delimiter can be [ (exclusive) or ] (inclusive).
  * Beside numbers, you can use -Inf and +Inf for the infinite.
  *
- * @see http://en.wikipedia.org/wiki/Interval_%28mathematics%29#The_ISO_notation
+ * @author Fabien Potencier <fabien@symfony.com>
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @see    http://en.wikipedia.org/wiki/Interval_%28mathematics%29#The_ISO_notation
  */
 class Interval
 {
@@ -57,7 +57,7 @@ class Interval
             $leftNumber = self::convertNumber($matches['left']);
             $rightNumber = self::convertNumber($matches['right']);
 
-            return 
+            return
                 ('[' === $matches['left_delimiter'] ? $number >= $leftNumber : $number > $leftNumber)
                 && (']' === $matches['right_delimiter'] ? $number <= $rightNumber : $number < $rightNumber)
             ;
@@ -80,24 +80,24 @@ class Interval
 
             |
 
-        (?<left_delimiter>[\[\]])
+        (?P<left_delimiter>[\[\]])
             \s*
-            (?<left>-Inf|\-?\d+)
+            (?P<left>-Inf|\-?\d+)
             \s*,\s*
-            (?<right>\+?Inf|\-?\d+)
+            (?P<right>\+?Inf|\-?\d+)
             \s*
-        (?<right_delimiter>[\[\]])
+        (?P<right_delimiter>[\[\]])
 EOF;
     }
 
-    static protected function convertNumber($number)
+    static private function convertNumber($number)
     {
         if ('-Inf' === $number) {
             return log(0);
         } elseif ('+Inf' === $number || 'Inf' === $number) {
             return -log(0);
-        } else {
-            return (int) $number;
         }
+
+        return (int) $number;
     }
 }

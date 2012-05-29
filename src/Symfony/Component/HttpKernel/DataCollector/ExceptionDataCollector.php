@@ -1,24 +1,25 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\HttpKernel\DataCollector;
 
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\FlattenException;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
  * ExceptionDataCollector.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class ExceptionDataCollector extends DataCollector
 {
@@ -28,8 +29,13 @@ class ExceptionDataCollector extends DataCollector
     public function collect(Request $request, Response $response, \Exception $exception = null)
     {
         if (null !== $exception) {
+            $flattenException = FlattenException::create($exception);
+            if ($exception instanceof HttpExceptionInterface) {
+                $flattenException->setStatusCode($exception->getStatusCode());
+            }
+
             $this->data = array(
-                'exception' => FlattenException::create($exception),
+                'exception' => $flattenException,
             );
         }
     }
@@ -72,6 +78,16 @@ class ExceptionDataCollector extends DataCollector
     public function getCode()
     {
         return $this->data['exception']->getCode();
+    }
+
+    /**
+     * Gets the status code.
+     *
+     * @return integer The status code
+     */
+    public function getStatusCode()
+    {
+        return $this->data['exception']->getStatusCode();
     }
 
     /**

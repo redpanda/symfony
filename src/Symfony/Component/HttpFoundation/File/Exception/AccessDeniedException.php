@@ -1,26 +1,27 @@
 <?php
 
-namespace Symfony\Component\HttpFoundation\File\Exception;
-
 /*
- * This file is part of the symfony package.
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\HttpFoundation\File\Exception;
+
 /**
  * Thrown when the access on a file was denied.
  *
- * @author Bernhard Schussek <bernhard.schussek@symfony-project.com>
+ * @author Bernhard Schussek <bschussek@gmail.com>
  */
 class AccessDeniedException extends FileException
 {
     /**
      * Constructor.
      *
-     * @param string $path  The path to the accessed file
+     * @param string $path The path to the accessed file
      */
     public function __construct($path)
     {

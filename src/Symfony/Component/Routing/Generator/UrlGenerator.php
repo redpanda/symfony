@@ -1,105 +1,131 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Routing\Generator;
 
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Routing\RequestContext;
+use Symfony\Component\Routing\Exception\InvalidParameterException;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
+use Symfony\Component\Routing\Exception\MissingMandatoryParametersException;
 
 /**
- * UrlGenerator generates URL based on a set of routes.
+ * UrlGenerator generates a URL based on a set of routes.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class UrlGenerator implements UrlGeneratorInterface
 {
-    protected $routes;
-    protected $defaults;
     protected $context;
-    protected $cache;
+    protected $decodedChars = array(
+        // %2F is not valid in a URL, so we don't encode it (which is fine as the requirements explicitly allowed it)
+        '%2F' => '/',
+    );
+
+    protected $routes;
 
     /**
      * Constructor.
      *
-     * @param RouteCollection $routes   A RouteCollection instance
-     * @param array           $context  The context
-     * @param array           $defaults The default values
+     * @param RouteCollection $routes  A RouteCollection instance
+     * @param RequestContext  $context The context
+     *
+     * @api
      */
-    public function __construct(RouteCollection $routes, array $context = array(), array $defaults = array())
+    public function __construct(RouteCollection $routes, RequestContext $context)
     {
         $this->routes = $routes;
         $this->context = $context;
-        $this->defaults = $defaults;
-        $this->cache = array();
     }
 
     /**
-     * Generates a URL from the given parameters.
+     * Sets the request context.
      *
-     * @param  string  $name       The name of the route
-     * @param  array   $parameters An array of parameters
-     * @param  Boolean $absolute   Whether to generate an absolute URL
+     * @param RequestContext $context The context
      *
-     * @return string The generated URL
-     *
-     * @throws \InvalidArgumentException When route doesn't exist
+     * @api
      */
-    public function generate($name, array $parameters, $absolute = false)
+    public function setContext(RequestContext $context)
+    {
+        $this->context = $context;
+    }
+
+    /**
+     * Gets the request context.
+     *
+     * @return RequestContext The context
+     */
+    public function getContext()
+    {
+        return $this->context;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @api
+     */
+    public function generate($name, $parameters = array(), $absolute = false)
     {
         if (null === $route = $this->routes->get($name)) {
-            throw new \InvalidArgumentException(sprintf('Route "%s" does not exist.', $name));
+            throw new RouteNotFoundException(sprintf('Route "%s" does not exist.', $name));
         }
 
-        if (!isset($this->cache[$name])) {
-            $this->cache[$name] = $route->compile();
-        }
+        // the Route has a cache of its own and is not recompiled as long as it does not get modified
+        $compiledRoute = $route->compile();
 
-        return $this->doGenerate($this->cache[$name]->getVariables(), $route->getDefaults(), $route->getRequirements(), $this->cache[$name]->getTokens(), $parameters, $name, $absolute);
+        return $this->doGenerate($compiledRoute->getVariables(), $route->getDefaults(), $route->getRequirements(), $compiledRoute->getTokens(), $parameters, $name, $absolute);
     }
 
     /**
-     * @throws \InvalidArgumentException When route has some missing mandatory parameters
+     * @throws MissingMandatoryParametersException When route has some missing mandatory parameters
+     * @throws InvalidParameterException When a parameter value is not correct
      */
     protected function doGenerate($variables, $defaults, $requirements, $tokens, $parameters, $name, $absolute)
     {
-        $defaults = array_merge($this->defaults, $defaults);
-        $tparams = array_merge($defaults, $parameters);
+        $variables = array_flip($variables);
+
+        $originParameters = $parameters;
+        $parameters = array_replace($this->context->getParameters(), $parameters);
+        $tparams = array_replace($defaults, $parameters);
 
         // all params must be given
         if ($diff = array_diff_key($variables, $tparams)) {
-            throw new \InvalidArgumentException(sprintf('The "%s" route has some missing mandatory parameters (%s).', $name, implode(', ', $diff)));
+            throw new MissingMandatoryParametersException(sprintf('The "%s" route has some missing mandatory parameters ("%s").', $name, implode('", "', array_keys($diff))));
         }
 
         $url = '';
         $optional = true;
         foreach ($tokens as $token) {
             if ('variable' === $token[0]) {
-                if (false === $optional || !isset($defaults[$token[3]]) || (isset($parameters[$token[3]]) && $parameters[$token[3]] != $defaults[$token[3]])) {
-                    // check requirement
-                    if (isset($requirements[$token[3]]) && !preg_match('#^'.$requirements[$token[3]].'$#', $tparams[$token[3]])) {
-                        throw new \InvalidArgumentException(sprintf('Parameter "%s" for route "%s" must match "%s" ("%s" given).', $token[3], $name, $requirements[$token[3]], $tparams[$token[3]]));
+                if (false === $optional || !array_key_exists($token[3], $defaults) || (isset($parameters[$token[3]]) && (string) $parameters[$token[3]] != (string) $defaults[$token[3]])) {
+                    if (!$isEmpty = in_array($tparams[$token[3]], array(null, '', false), true)) {
+                        // check requirement
+                        if ($tparams[$token[3]] && !preg_match('#^'.$token[2].'$#', $tparams[$token[3]])) {
+                            throw new InvalidParameterException(sprintf('Parameter "%s" for route "%s" must match "%s" ("%s" given).', $token[3], $name, $token[2], $tparams[$token[3]]));
+                        }
                     }
 
-                    $url = $token[1].urlencode($tparams[$token[3]]).$url;
+                    if (!$isEmpty || !$optional) {
+                        $url = $token[1].strtr(rawurlencode($tparams[$token[3]]), $this->decodedChars).$url;
+                    }
+
                     $optional = false;
                 }
             } elseif ('text' === $token[0]) {
-                $url = $token[1].$token[2].$url;
+                $url = $token[1].$url;
                 $optional = false;
-            } else {
-                // handle custom tokens
-                if ($segment = call_user_func_array(array($this, 'generateFor'.ucfirst(array_shift($token))), array_merge(array($optional, $tparams), $token))) {
-                    $url = $segment.$url;
-                    $optional = false;
-                }
             }
         }
 
@@ -108,14 +134,30 @@ class UrlGenerator implements UrlGeneratorInterface
         }
 
         // add a query string if needed
-        if ($extra = array_diff_key($parameters, $variables, $defaults)) {
-            $url .= '?'.http_build_query($extra);
+        $extra = array_diff_key($originParameters, $variables, $defaults);
+        if ($extra && $query = http_build_query($extra, '', '&')) {
+            $url .= '?'.$query;
         }
 
-        $url = (isset($this->context['base_url']) ? $this->context['base_url'] : '').$url;
+        $url = $this->context->getBaseUrl().$url;
 
-        if ($absolute && isset($this->context['host'])) {
-            $url = 'http'.(isset($this->context['is_secure']) && $this->context['is_secure'] ? 's' : '').'://'.$this->context['host'].$url;
+        if ($this->context->getHost()) {
+            $scheme = $this->context->getScheme();
+            if (isset($requirements['_scheme']) && ($req = strtolower($requirements['_scheme'])) && $scheme != $req) {
+                $absolute = true;
+                $scheme = $req;
+            }
+
+            if ($absolute) {
+                $port = '';
+                if ('http' === $scheme && 80 != $this->context->getHttpPort()) {
+                    $port = ':'.$this->context->getHttpPort();
+                } elseif ('https' === $scheme && 443 != $this->context->getHttpsPort()) {
+                    $port = ':'.$this->context->getHttpsPort();
+                }
+
+                $url = $scheme.'://'.$this->context->getHost().$port.$url;
+            }
         }
 
         return $url;

@@ -1,15 +1,17 @@
 <?php
 
-namespace Symfony\Component\CssSelector;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\CssSelector;
+
+use Symfony\Component\CssSelector\Exception\ParseException;
 
 /**
  * Tokenizer lexes a CSS Selector to tokens.
@@ -17,10 +19,18 @@ namespace Symfony\Component\CssSelector;
  * This component is a port of the Python lxml library,
  * which is copyright Infrae and distributed under the BSD license.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class Tokenizer
 {
+    /**
+     * Takes a CSS selector and returns an array holding the Tokens
+     * it contains.
+     *
+     * @param string $s The selector to lex.
+     *
+     * @return array Token[]
+     */
     public function tokenize($s)
     {
         if (function_exists('mb_internal_encoding') && ((int) ini_get('mbstring.func_overload')) & 2) {
@@ -34,10 +44,10 @@ class Tokenizer
 
         while (true) {
             if (preg_match('#\s+#A', $s, $match, 0, $pos)) {
-                $preceding_whitespace_pos = $pos;
+                $precedingWhitespacePos = $pos;
                 $pos += strlen($match[0]);
             } else {
-                $preceding_whitespace_pos = 0;
+                $precedingWhitespacePos = 0;
             }
 
             if ($pos >= strlen($s)) {
@@ -66,8 +76,8 @@ class Tokenizer
             }
 
             if (in_array($c, array('>', '+', '~', ',', '.', '*', '=', '[', ']', '(', ')', '|', ':', '#'))) {
-                if (in_array($c, array('.', '#', '[')) && $preceding_whitespace_pos > 0) {
-                    $tokens[] = new Token('Token', ' ', $preceding_whitespace_pos);
+                if (in_array($c, array('.', '#', '[')) && $precedingWhitespacePos > 0) {
+                    $tokens[] = new Token('Token', ' ', $precedingWhitespacePos);
                 }
                 $tokens[] = new Token('Token', $c, $pos);
                 ++$pos;
@@ -77,27 +87,36 @@ class Tokenizer
 
             if ('"' === $c || "'" === $c) {
                 // Quoted string
-                $old_pos = $pos;
+                $oldPos = $pos;
                 list($sym, $pos) = $this->tokenizeEscapedString($s, $pos);
 
-                $tokens[] = new Token('String', $sym, $old_pos);
+                $tokens[] = new Token('String', $sym, $oldPos);
 
                 continue;
             }
 
-            $old_pos = $pos;
+            $oldPos = $pos;
             list($sym, $pos) = $this->tokenizeSymbol($s, $pos);
 
-            $tokens[] = new Token('Symbol', $sym, $old_pos);
+            $tokens[] = new Token('Symbol', $sym, $oldPos);
 
             continue;
         }
     }
 
     /**
-     * @throws SyntaxError When expected closing is not found
+     * Tokenizes a quoted string (i.e. 'A string quoted with \' characters'),
+     * and returns an array holding the unquoted string contained by $s and
+     * the new position from which tokenizing should take over.
+     *
+     * @param string  $s   The selector string containing the quoted string.
+     * @param integer $pos The starting position for the quoted string.
+     *
+     * @return array
+     *
+     * @throws ParseException When expected closing is not found
      */
-    protected function tokenizeEscapedString($s, $pos)
+    private function tokenizeEscapedString($s, $pos)
     {
         $quote = $s[$pos];
 
@@ -106,7 +125,7 @@ class Tokenizer
         while (true) {
             $next = strpos($s, $quote, $pos);
             if (false === $next) {
-                throw new SyntaxError(sprintf('Expected closing %s for string in: %s', $quote, substr($s, $start)));
+                throw new ParseException(sprintf('Expected closing %s for string in: %s', $quote, substr($s, $start)));
             }
 
             $result = substr($s, $start, $next - $start);
@@ -125,27 +144,41 @@ class Tokenizer
     }
 
     /**
-     * @throws SyntaxError When invalid escape sequence is found
+     * Unescapes a string literal and returns the unescaped string.
+     *
+     * @param string $literal The string literal to unescape.
+     *
+     * @return string
+     *
+     * @throws ParseException When invalid escape sequence is found
      */
-    protected function unescapeStringLiteral($literal)
+    private function unescapeStringLiteral($literal)
     {
-        return preg_replace_callback('#(\\\\(?:[A-Fa-f0-9]{1,6}(?:\r\n|\s)?|[^A-Fa-f0-9]))#', function ($matches) use ($literal)
-        {
+        return preg_replace_callback('#(\\\\(?:[A-Fa-f0-9]{1,6}(?:\r\n|\s)?|[^A-Fa-f0-9]))#', function ($matches) use ($literal) {
             if ($matches[0][0] == '\\' && strlen($matches[0]) > 1) {
                 $matches[0] = substr($matches[0], 1);
                 if (in_array($matches[0][0], array('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f'))) {
                     return chr(trim($matches[0]));
                 }
             } else {
-                throw new SyntaxError(sprintf('Invalid escape sequence %s in string %s', $matches[0], $literal));
+                throw new ParseException(sprintf('Invalid escape sequence %s in string %s', $matches[0], $literal));
             }
         }, $literal);
     }
 
     /**
-     * @throws SyntaxError When Unexpected symbol is found
+     * Lexes selector $s and returns an array holding the name of the symbol
+     * contained in it and the new position from which tokenizing should take
+     * over.
+     *
+     * @param string  $s   The selector string.
+     * @param integer $pos The position in $s at which the symbol starts.
+     *
+     * @return array
+     *
+     * @throws ParseException When Unexpected symbol is found
      */
-    protected function tokenizeSymbol($s, $pos)
+    private function tokenizeSymbol($s, $pos)
     {
         $start = $pos;
 
@@ -157,7 +190,7 @@ class Tokenizer
         $matchStart = $match[0][1];
 
         if ($matchStart == $pos) {
-            throw new SyntaxError(sprintf('Unexpected symbol: %s at %s', $s[$pos], $pos));
+            throw new ParseException(sprintf('Unexpected symbol: %s at %s', $s[$pos], $pos));
         }
 
         $result = substr($s, $start, $matchStart - $start);

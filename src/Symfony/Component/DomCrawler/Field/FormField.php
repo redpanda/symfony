@@ -1,28 +1,47 @@
 <?php
 
-namespace Symfony\Component\DomCrawler\Field;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\DomCrawler\Field;
+
 /**
  * FormField is the abstract class for all form fields.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 abstract class FormField
 {
+    /**
+     * @var \DOMNode
+     */
     protected $node;
+    /**
+     * @var string
+     */
     protected $name;
+    /**
+     * @var string
+     */
     protected $value;
+    /**
+     * @var \DOMDocument
+     */
     protected $document;
+    /**
+     * @var \DOMXPath
+     */
     protected $xpath;
+    /**
+     * @var Boolean
+     */
+    protected $disabled;
 
     /**
      * Constructor.
@@ -68,6 +87,8 @@ abstract class FormField
      * Sets the value of the field.
      *
      * @param string $value The value of the field
+     *
+     * @api
      */
     public function setValue($value)
     {
@@ -82,6 +103,16 @@ abstract class FormField
     public function hasValue()
     {
         return true;
+    }
+
+    /**
+     * Check if the current field is disabled
+     *
+     * @return Boolean
+     */
+    public function isDisabled()
+    {
+        return $this->node->hasAttribute('disabled');
     }
 
     /**

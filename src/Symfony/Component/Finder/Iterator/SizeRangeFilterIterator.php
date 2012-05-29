@@ -1,24 +1,24 @@
 <?php
 
-namespace Symfony\Component\Finder\Iterator;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Symfony\Component\Finder\Iterator;
 
 /**
  * SizeRangeFilterIterator filters out files that are not in the given size range.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class SizeRangeFilterIterator extends \FilterIterator
 {
-    protected $comparators = array();
+    private $comparators = array();
 
     /**
      * Constructor.
@@ -40,13 +40,11 @@ class SizeRangeFilterIterator extends \FilterIterator
      */
     public function accept()
     {
-        $fileinfo = $this->getInnerIterator()->current();
-
-        if (!$fileinfo->isFile()) {
+        if (!$this->isFile()) {
             return true;
         }
 
-        $filesize = $fileinfo->getSize();
+        $filesize = $this->getSize();
         foreach ($this->comparators as $compare) {
             if (!$compare->test($filesize)) {
                 return false;

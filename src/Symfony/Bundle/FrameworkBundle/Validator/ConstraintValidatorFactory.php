@@ -1,18 +1,17 @@
 <?php
 
-namespace Symfony\Bundle\FrameworkBundle\Validator;
-
 /*
- * This file is part of the Symfony framework.
+ * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 
+namespace Symfony\Bundle\FrameworkBundle\Validator;
+
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\DependencyInjection\TaggedContainerInterface;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidatorFactoryInterface;
 
@@ -34,35 +33,23 @@ use Symfony\Component\Validator\ConstraintValidatorFactoryInterface;
  *         return 'some_alias';
  *     }
  *
- * @author Kris Wallsmith <kris.wallsmith@symfony-project.com>
+ * @author Kris Wallsmith <kris@symfony.com>
  */
 class ConstraintValidatorFactory implements ConstraintValidatorFactoryInterface
 {
     protected $container;
-    protected $validators = array();
+    protected $validators;
 
     /**
      * Constructor.
      *
-     * @param ContainerInterface $container The service container
+     * @param ContainerInterface $container  The service container
+     * @param array              $validators An array of validators
      */
-    public function __construct(ContainerInterface $container)
+    public function __construct(ContainerInterface $container, array $validators = array())
     {
         $this->container = $container;
-    }
-
-    /**
-     * Loads ids for services tagged as constraint validators.
-     *
-     * @param TaggedContainerInterface $container The tagged service container
-     */
-    public function loadTaggedServiceIds(TaggedContainerInterface $container)
-    {
-        foreach ($container->findTaggedServiceIds('validator.constraint_validator') as $id => $attributes) {
-            if (isset($attributes[0]['alias'])) {
-                $this->validators[$attributes[0]['alias']] = $id;
-            }
-        }
+        $this->validators = $validators;
     }
 
     /**

@@ -1,65 +1,73 @@
 <?php
 
+/*
+ * This file is part of the Symfony package.
+ *
+ * (c) Fabien Potencier <fabien@symfony.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\Routing\Matcher;
 
-use Symfony\Component\Routing\Route;
-use Symfony\Component\Routing\RouteCollection;
-
-/*
- * This file is part of the Symfony framework.
- *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 
 /**
  * ApacheUrlMatcher matches URL based on Apache mod_rewrite matching (see ApacheMatcherDumper).
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class ApacheUrlMatcher extends UrlMatcher
 {
-    protected $defaults;
-    protected $context;
-
-    /**
-     * Constructor.
-     *
-     * @param array $context  The context
-     * @param array $defaults The default values
-     */
-    public function __construct(array $context = array(), array $defaults = array())
-    {
-        $this->context = $context;
-        $this->defaults = $defaults;
-    }
-
     /**
      * Tries to match a URL based on Apache mod_rewrite matching.
      *
      * Returns false if no route matches the URL.
      *
-     * @param  string $url URL to be parsed
+     * @param string $pathinfo The pathinfo to be parsed
      *
-     * @return array|false An array of parameters or false if no route matches
+     * @return array An array of parameters
+     *
+     * @throws MethodNotAllowedException If the current method is not allowed
      */
-    public function match($url)
+    public function match($pathinfo)
     {
-        if (!isset($_SERVER['_ROUTING__route'])) {
-            // fall-back to the default UrlMatcher
-            return parent::match($url);
-        }
-
         $parameters = array();
+        $allow = array();
+        $match = false;
+
         foreach ($_SERVER as $key => $value) {
-            if ('_ROUTING_' === substr($key, 0, 9)) {
-                $parameters[substr($key, 9)] = $value;
-                unset($_SERVER[$key]);
+            $name = $key;
+
+            if (0 === strpos($name, 'REDIRECT_')) {
+                $name = substr($name, 9);
             }
+
+            if (0 === strpos($name, '_ROUTING_')) {
+                $name = substr($name, 9);
+            } else {
+                continue;
+            }
+
+            if ('_route' == $name) {
+                $match = true;
+                $parameters[$name] = $value;
+            } elseif (0 === strpos($name, '_allow_')) {
+                $allow[] = substr($name, 7);
+            } else {
+                $parameters[$name] = $value;
+            }
+
+            unset($_SERVER[$key]);
         }
 
-        return $parameters;
+        if ($match) {
+            return $parameters;
+        } elseif (0 < count($allow)) {
+            throw new MethodNotAllowedException($allow);
+        } else {
+            return parent::match($pathinfo);
+        }
     }
 }

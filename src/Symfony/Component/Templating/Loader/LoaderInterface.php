@@ -1,39 +1,47 @@
 <?php
 
-namespace Symfony\Component\Templating\Loader;
-
 /*
  * This file is part of the Symfony package.
  *
- * (c) Fabien Potencier <fabien.potencier@symfony-project.com>
+ * (c) Fabien Potencier <fabien@symfony.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 
+namespace Symfony\Component\Templating\Loader;
+
+use Symfony\Component\Templating\TemplateReferenceInterface;
+
 /**
  * LoaderInterface is the interface all loaders must implement.
  *
- * @author Fabien Potencier <fabien.potencier@symfony-project.com>
+ * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 interface LoaderInterface
 {
     /**
      * Loads a template.
      *
-     * @param string $template The logical template name
-     * @param array  $options  An array of options
+     * @param TemplateReferenceInterface $template A template
      *
      * @return Storage|Boolean false if the template cannot be loaded, a Storage instance otherwise
+     *
+     * @api
      */
-    function load($template, array $options = array());
+    function load(TemplateReferenceInterface $template);
 
     /**
      * Returns true if the template is still fresh.
      *
-     * @param string    $template The template name
-     * @param array     $options  An array of options
-     * @param timestamp $time     The last modification time of the cached template
+     * @param TemplateReferenceInterface $template A template
+     * @param integer                    $time     The last modification time of the cached template (timestamp)
+     *
+     * @return Boolean
+     *
+     * @api
      */
-    function isFresh($template, array $options = array(), $time);
+    function isFresh(TemplateReferenceInterface $template, $time);
 }
